@@ -25,11 +25,18 @@
     ],
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ]
     },
     "portable": {
       "artifactName": "PolixCreatorKATO-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Памятка семьи Polix Creator : KATO"
     }
   },
   "productName": "Памятка семьи Polix Creator : KATO"
