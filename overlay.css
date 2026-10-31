@@ -1,0 +1,11 @@
+/* прозрачный фон оверлея: окно уже полупрозрачное через setOpacity */
+html, body { background: transparent !important; }
+.wrap { padding-top: 14px !important; padding-bottom: 14px !important; max-width: none !important; }
+.stats { grid-template-columns: repeat(2, 1fr) !important; }
+.panel { background: rgba(14, 12, 18, 0.55) !important; backdrop-filter: blur(10px); }
+.bar { background: rgba(22, 19, 24, 0.6) !important; -webkit-app-region: drag; }
+.bar button, .bar input, .bar .seg { -webkit-app-region: no-drag; }
+.dock { max-width: none !important; }
+.promo { display: none !important; }
+body { font-size: 13px; }
+tbody td { padding: 9px 10px !important; }
