@@ -162,6 +162,13 @@ ipcMain.on('ov-resize', (_e, h) => {
   win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
 });
 ipcMain.on('ov-hide', () => hideWin());
+ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
+ipcMain.on('ov-position', (_e, side) => {
+  if (!win) return;
+  const wa = screen.getPrimaryDisplay().workArea; const b = win.getBounds();
+  const x = side === 'left' ? wa.x + 12 : side === 'right' ? wa.x + wa.width - b.width - 12 : wa.x + Math.round((wa.width - b.width) / 2);
+  win.setPosition(x, b.y);
+});
 // Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
 let me = { premium: false };

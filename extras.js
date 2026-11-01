@@ -106,6 +106,7 @@
     list.querySelectorAll('.xbtn').forEach((b) => (b.onclick = () => { LS.set('ph_case', cas().filter((c) => c !== b.dataset.r)); updateCaseBadge(); openCase(); }));
     const cp = $('#cpCase'); if (cp) cp.onclick = () => copy(caseText(items), cp);
     const cl = $('#clCase'); if (cl) cl.onclick = () => { LS.set('ph_case', []); updateCaseBadge(); openCase(); };
+    if (window.PHX_caseExtra) window.PHX_caseExtra(items);
   }
 
   /* ----- Темы ----- */
@@ -184,6 +185,8 @@
       openAdmin();
     }));
   };
+
+  window.PHX = { LS, gate, copy, favs, cas, hist, updateCaseBadge, openCase, applyTheme, THEMES, fineNum, caseText, byCode };
 
   /* ----- Статус подписки ----- */
   if (window.overlay && window.overlay.authState) {
