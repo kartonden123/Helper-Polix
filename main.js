@@ -7,7 +7,7 @@ const auth = require('./auth');
 const APP_NAME = 'Polix Helper';
 const STATS_URL = 'https://polix-helper-stats.kartonden123.workers.dev';   // сервер статистики (Cloudflare Worker)
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
-const WIDTH = 840;
+const WIDTH = 880;
 const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
@@ -210,18 +210,38 @@ ipcMain.on('ov-position', (_e, side) => {
 });
 // Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
-let me = { premium: false };
-try { me = JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')); } catch (e) {}
+let me = { premium: false, role: '', banned: false, announce: null };
+try { me = { ...me, ...JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')) }; } catch (e) {}
 async function refreshMe() {
   const t = auth.token();
-  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false }; return; }
+  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false, role: '', banned: false, announce: null }; return; }
   try {
     const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
-    if (r.ok) { const d = await r.json(); me = { premium: !!d.premium }; try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {} }
+    if (r.ok) {
+      const d = await r.json();
+      me = { premium: !!d.premium, role: d.role || '', banned: !!d.banned, announce: d.announce || null };
+      try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {}
+    }
   } catch (e) { log('me error ' + e.message); }
 }
-ipcMain.handle('auth-state', async () => { await refreshMe(); const s = auth.get(); return { ...s, premium: !!(s.ok && (s.admin || me.premium)) }; });
-ipcMain.handle('admin-premium', async (_e, id, on) => {
+ipcMain.handle('auth-state', async () => {
+  await refreshMe();
+  const s = auth.get();
+  const role = s.ok ? (s.admin ? 'owner' : me.role) : '';
+  return { ...s, role, staff: !!role, premium: !!(s.ok && (role || me.premium)), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
+});
+// панель персонала и список «В сети»: права проверяет сервер
+ipcMain.handle('staff-api', async (_e, method, apiPath, body) => {
+  const t = auth.token();
+  if (!t || !auth.get().ok) return { error: 'Войдите через Discord' };
+  if (!/^\/(staff\/[a-z]+|online)(\?id=\d{5,25})?$/.test(apiPath)) return { error: 'bad path' };
+  try {
+    const r = await fetch(STATS_URL + apiPath, { method: method === 'POST' ? 'POST' : 'GET', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: method === 'POST' ? JSON.stringify(body || {}) : undefined });
+    const d = await r.json();
+    if (!r.ok && !d.error) d.error = 'Ошибка ' + r.status;
+    return d;
+  } catch (e) { return { error: 'Нет связи с сервером' }; }
+});ipcMain.handle('admin-premium', async (_e, id, on) => {
   const t = auth.token();
   if (!t || !auth.get().admin) return { error: 'forbidden' };
   try {
