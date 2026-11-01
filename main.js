@@ -7,7 +7,7 @@ const auth = require('./auth');
 const APP_NAME = 'Polix Helper';
 const STATS_URL = 'https://polix-helper-stats.kartonden123.workers.dev';   // сервер статистики (Cloudflare Worker)
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
-const WIDTH = 880;
+const WIDTH = 940;
 const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
@@ -16,7 +16,7 @@ const DEBUG = false;           // true: лог и DevTools
 
 const PREFS_FILE = path.join(app.getPath('userData'), 'ui-prefs.json');
 const readPrefs = () => { try { return JSON.parse(fs.readFileSync(PREFS_FILE, 'utf8')); } catch (e) { return {}; } };
-let BLUR = process.platform === 'win32' && !!readPrefs().blur;   // размытие фона (Ультра): окно без прозрачности, фон даёт Windows 11
+// размытие фона (Ультра): при открытии меню делаем снимок экрана, он размывается и подкладывается только под плашки
 let win = null;
 let tray = null;
 let visible = true;
@@ -92,8 +92,7 @@ function createWindow() {
     ...placeWindow(),
     show: false,
     frame: false,
-    transparent: !BLUR,
-    ...(BLUR ? { backgroundMaterial: 'acrylic' } : {}),
+    transparent: true,
     resizable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -103,8 +102,7 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false,
-      additionalArguments: BLUR ? ['--blur-mode'] : []
+      nodeIntegration: false
     }
   });
   win.setAlwaysOnTop(true, 'screen-saver');
@@ -119,6 +117,8 @@ function createWindow() {
   win.on('close', (e) => {
     if (!quitting) { e.preventDefault(); hideWin(); }
   });
+  win.on('blur', () => { if (readPrefs().autohide && win && !win.isDestroyed() && win.isVisible() && !quitting) setTimeout(() => { if (win && !win.isDestroyed() && !win.isFocused()) hideWin(); }, 150); });
+  win.on('moved', () => { if (win && !win.isDestroyed()) win.webContents.send('ov-bounds', win.getBounds()); });
   win.on('closed', () => { win = null; });
 }
 
@@ -127,18 +127,33 @@ function loadContent() {
   win.loadFile(path.join(__dirname, auth.get().ok ? 'index.html' : 'login.html'));
 }
 
+const snapAllowed = () => !!(auth.get().ok && (auth.get().admin || me.tier === 'ultra'));
+const snapOn = () => !!readPrefs().snap && snapAllowed();
+async function captureBg() {
+  const d = screen.getDisplayNearestPoint({ x: win.getBounds().x + 40, y: win.getBounds().y + 40 });
+  const k = 3, sz = d.size;
+  const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(sz.width / k), height: Math.round(sz.height / k) } });
+  const src = srcs.find((s) => String(s.display_id) === String(d.id)) || srcs[0];
+  if (!src || src.thumbnail.isEmpty()) return null;
+  return { img: 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(72).toString('base64'), sw: sz.width, sh: sz.height, dx: d.bounds.x, dy: d.bounds.y, b: win.getBounds() };
+}
 function showWin() {
   if (!win) createWindow();
-  win.setAlwaysOnTop(true, 'screen-saver');
-  // окно показываем невидимым: меню сначала сбрасывает состояние и подгоняет размер, потом плавно проявляется (без «прыжка» старого кадра)
   const was = win.isVisible();
-  if (!was) win.setOpacity(0);
-  win.show(); win.focus(); win.webContents.focus(); visible = true;
-  win.webContents.send('ov-show');
-  if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
-  updateTrayMenu();
-}
-function hideWin() {
+  const go = (bg) => {
+    if (!win || win.isDestroyed()) return;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    // окно показываем невидимым: меню сначала сбрасывает состояние и подгоняет размер, потом плавно проявляется (без «прыжка» старого кадра)
+    if (!was) win.setOpacity(0);
+    win.webContents.send('ov-bg', bg || null);
+    win.show(); win.focus(); win.webContents.focus(); visible = true;
+    win.webContents.send('ov-show');
+    if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
+    updateTrayMenu();
+  };
+  if (!was && snapOn()) Promise.race([captureBg(), new Promise((r) => setTimeout(() => r(null), 700))]).then(go, () => go(null));
+  else go(null);
+}function hideWin() {
   if (win) win.hide();
   visible = false;
   updateTrayMenu();
@@ -292,14 +307,16 @@ ipcMain.handle('poker-shot', async () => {
     return { path: file };
   } catch (e) { if (win) win.setOpacity(1); log('shot error ' + e.message); return { error: 'fail' }; }
 });
-ipcMain.on('ov-blur', (_e, on) => {
-  if (!(auth.get().admin || me.tier === 'ultra')) return;   // только Ультра Премиум
-  try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), blur: !!on })); } catch (e) {}
-  BLUR = process.platform === 'win32' && !!on; STARTED_HIDDEN = false;
-  const old = win; win = null;
-  if (old) { old.removeAllListeners(); old.destroy(); }
-  createWindow();   // прозрачность окна задаётся только при создании, поэтому окно пересоздаётся
-});ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
+ipcMain.on('ov-blur', async (_e, on) => {
+  if (!snapAllowed()) return;   // только Ультра Премиум
+  try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), snap: !!on })); } catch (e) {}
+  if (!win) return;
+  if (!on) { win.webContents.send('ov-bg', null); return; }
+  try { win.setOpacity(0); await new Promise((r) => setTimeout(r, 160)); const bg = await captureBg(); win.setOpacity(1); win.webContents.send('ov-bg', bg); } catch (e) { win.setOpacity(1); }
+});
+ipcMain.handle('ui-prefs', () => ({ snap: snapOn(), autohide: !!readPrefs().autohide }));
+ipcMain.on('ov-autohide', (_e, on) => { try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), autohide: !!on })); } catch (e) {} });
+pcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
   if (!win) return;
   const wa = screen.getPrimaryDisplay().workArea; const b = win.getBounds();

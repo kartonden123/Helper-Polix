@@ -1,7 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.4.1',
-  blur: process.argv.includes('--blur-mode'),
+  version: '2.5.0',
+  setAutohide: (on) => ipcRenderer.send('ov-autohide', !!on),
+  uiPrefs: () => ipcRenderer.invoke('ui-prefs'),
+  onBg: (cb) => ipcRenderer.on('ov-bg', (_e, b) => cb(b)),
+  onBounds: (cb) => ipcRenderer.on('ov-bounds', (_e, b) => cb(b)),
   notifyTest: () => ipcRenderer.invoke('notify-test'),
   onMeChanged: (cb) => ipcRenderer.on('me-changed', () => cb()),
   chatHist: () => ipcRenderer.invoke('chat-hist'),
