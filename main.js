@@ -39,7 +39,7 @@ function placeWindow() {
   return {
     x: workArea.x + Math.round((workArea.width - w) / 2),
     y: workArea.y + Math.round(workArea.height * 0.12),
-    width: w, height: h
+    width: w, height: 160
   };
 }
 
@@ -64,7 +64,6 @@ function createWindow() {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setOpacity(OPACITY);
   loadContent();
-  win.setIgnoreMouseEvents(true, { forward: true });
 
   win.webContents.on('did-fail-load', (_e, code, desc) => log(`did-fail-load ${code} ${desc}`));
   win.once('ready-to-show', () => { win.show(); visible = true; });
@@ -156,7 +155,12 @@ function updateTrayMenu() {
   ]));
 }
 
-ipcMain.on('ov-ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(v, { forward: true }); });
+ipcMain.on('ov-resize', (_e, h) => {
+  if (!win || !(h > 0)) return;
+  const max = Math.round(screen.getPrimaryDisplay().workArea.height * 0.9);
+  const [w] = win.getContentSize();
+  win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
+});
 ipcMain.on('ov-hide', () => hideWin());
 ipcMain.handle('auth-state', () => auth.get());
 // статистика: сообщаем серверу, что человек пользуется хелпером

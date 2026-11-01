@@ -37,9 +37,5 @@ go.onclick=async()=>{
   const s=await window.overlay.login();
   go.disabled=false;go.textContent='Войти через Discord';show(s);
 };
-if(window.overlay&&window.overlay.ignore){
-  let ig=null;const set=v=>{if(v!==ig){ig=v;window.overlay.ignore(v);}};
-  document.addEventListener('mousemove',e=>{const el=document.elementFromPoint(e.clientX,e.clientY);set(!(el&&el.closest('.card')));});
-  document.addEventListener('mouseleave',()=>set(true));
-}
+if(window.overlay&&window.overlay.resize){const w=document.querySelector('.wrap');let lh=0;const fit=()=>{const h=Math.ceil(w.getBoundingClientRect().height);if(h&&Math.abs(h-lh)>1){lh=h;window.overlay.resize(h);}};new ResizeObserver(fit).observe(w);fit();}
 </script></body></html>
