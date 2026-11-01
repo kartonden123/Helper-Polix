@@ -182,6 +182,140 @@ body.ov-mode .res{padding:9px 10px}
 body.ov-mode .res p{font-size:12px}
 body.ov-mode .gen{padding:10px 12px}
 body.ov-mode .gen p{font-size:12px}
+
+/* ===== оверлей: матовое стекло ===== */
+body.ov-mode .panel{background:rgba(12,10,16,.42)!important;backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.08)}
+body.ov-mode .bar{background:rgba(12,10,16,.42)!important;backdrop-filter:blur(18px) saturate(140%);-webkit-backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.08)}
+body.ov-mode thead th{background:rgba(12,10,16,.55)!important;backdrop-filter:blur(10px)}
+body.ov-mode tbody tr:hover{background:rgba(255,77,109,.12)}
+body.ov-mode .name{max-width:none!important}
+body.ov-mode .name span{max-width:260px}
+body.ov-mode tbody td{border-bottom:1px solid rgba(255,255,255,.05)}
+
+/* ===================== OVERLAY v6 ===================== */
+body.ov-mode{
+  --g1:rgba(18,15,22,.62); --g2:rgba(28,23,34,.5); --edge:rgba(255,255,255,.09);
+  --ink:#f5f2f7; --dim:#a79fb0; --mute:#6c6578;
+  --hot:#ff4d6d; --hot2:#ff9aae; --hotsoft:rgba(255,77,109,.14);
+  background:transparent!important;
+  font-size:13px;
+}
+body.ov-mode .wrap{padding:12px!important;height:100vh;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;max-width:none!important}
+body.ov-mode .dock{margin:0!important;animation:slideIn .55s cubic-bezier(.2,.8,.2,1) both}
+body.ov-mode .promo{display:none!important}
+
+/* верхняя панель */
+body.ov-mode .bar{
+  background:linear-gradient(180deg,var(--g1),var(--g2))!important;
+  backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid var(--edge)!important;border-radius:18px!important;
+  padding:8px 8px 8px 12px!important;gap:8px!important;
+  box-shadow:0 18px 40px -18px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06)!important;
+  -webkit-app-region:drag;
+}
+body.ov-mode .bar input,body.ov-mode .bar button,body.ov-mode .bar .seg{-webkit-app-region:no-drag}
+body.ov-mode .logo{width:24px!important;height:24px!important}
+body.ov-mode #gq{font-size:14px!important;color:var(--ink)}
+body.ov-mode #gq::placeholder{color:var(--mute)}
+body.ov-mode .seg{background:rgba(255,255,255,.05)!important;border:1px solid var(--edge)!important;padding:3px!important}
+body.ov-mode .seg button{padding:5px 10px!important;font-size:12px!important;color:var(--dim)}
+body.ov-mode .seg button.on{color:var(--ink)!important}
+body.ov-mode .seg .ind{background:linear-gradient(135deg,#34283a,#44304a)!important}
+body.ov-mode .pill{background:var(--hotsoft)!important;border:1px solid rgba(255,77,109,.35)!important;color:var(--ink)!important;padding:5px 9px!important}
+body.ov-mode .pill:hover{background:rgba(255,77,109,.22)!important}
+body.ov-mode .sep,body.ov-mode #theme{display:none!important}
+body.ov-mode .stats{display:none!important}
+
+/* панель с таблицей */
+body.ov-mode .panel{
+  flex:1!important;min-height:0;display:flex;flex-direction:column;
+  background:linear-gradient(180deg,var(--g1),var(--g2))!important;
+  backdrop-filter:blur(22px) saturate(160%);-webkit-backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid var(--edge)!important;border-radius:18px!important;overflow:hidden;
+  box-shadow:0 24px 50px -22px rgba(0,0,0,.7);
+  animation:slideIn .7s .08s cubic-bezier(.2,.8,.2,1) both;
+}
+body.ov-mode .toolbar{padding:10px!important;border-bottom:1px solid var(--edge)!important;gap:8px!important;flex-wrap:nowrap!important;overflow-x:auto}
+body.ov-mode .seg2{background:rgba(255,255,255,.04)!important;border:1px solid var(--edge)!important;padding:3px!important;flex:none}
+body.ov-mode .seg2 button{padding:4px 8px!important;font-size:11.5px!important;color:var(--dim);border-radius:7px!important}
+body.ov-mode .seg2 button.on{background:rgba(255,255,255,.12)!important;color:var(--ink)!important}
+body.ov-mode .count{font-size:11px!important;color:var(--mute)!important;flex:none}
+
+/* таблица */
+body.ov-mode .tw{flex:1;min-height:0;max-height:none!important;overflow:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
+body.ov-mode thead th{background:rgba(14,11,18,.7)!important;backdrop-filter:blur(12px);color:var(--mute)!important;font-size:10px!important;padding:9px 10px!important;letter-spacing:.09em!important;border-bottom:1px solid var(--edge)!important}
+body.ov-mode thead th.sorted{color:var(--ink)!important}
+body.ov-mode tbody tr{animation:rowIn .4s both;animation-delay:calc(var(--i,0) * 14ms)}
+body.ov-mode tbody td{padding:9px 10px!important;font-size:12.5px!important;border-bottom:1px solid rgba(255,255,255,.045)!important;color:var(--ink)}
+body.ov-mode tbody tr:hover{background:linear-gradient(90deg,rgba(255,77,109,.16),rgba(255,77,109,.03))!important}
+body.ov-mode tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 var(--hot)}
+body.ov-mode .code{font-size:12.5px!important;color:var(--ink)}
+body.ov-mode .code .doc{display:none!important}
+body.ov-mode .name{max-width:none!important}
+body.ov-mode .name span{max-width:none!important;color:var(--ink)}
+body.ov-mode .stars{font-size:9.5px!important;letter-spacing:0!important;filter:drop-shadow(0 0 6px rgba(255,200,80,.25))}
+body.ov-mode .stars.r{filter:drop-shadow(0 0 6px rgba(255,59,59,.55))}
+body.ov-mode .no{color:var(--mute)!important}
+body.ov-mode .rec{font-size:9px!important;padding:3px 7px!important;border-radius:999px!important;background:linear-gradient(135deg,#ff3b5c,#ff7a8f)!important;box-shadow:0 0 12px -2px rgba(255,59,92,.7)!important;animation:glow 2.4s ease-in-out infinite}
+body.ov-mode .shield{font-size:8.5px!important;padding:2px 6px!important;border-radius:999px!important;margin-left:8px!important;background:rgba(255,77,109,.18)!important;color:var(--hot2)!important;border:1px solid rgba(255,77,109,.35)!important;box-shadow:none!important}
+body.ov-mode .num{color:var(--ink)!important;font-weight:600}
+
+/* окна и остальные вкладки */
+body.ov-mode #v-search,body.ov-mode #v-memo,body.ov-mode #v-immune{flex:1;min-height:0;overflow:auto}
+body.ov-mode .res{padding:10px 12px!important;border-bottom:1px solid rgba(255,255,255,.05)!important;animation:rowIn .35s both}
+body.ov-mode .res p{font-size:12.5px!important;color:var(--dim)}
+body.ov-mode .gen{padding:12px 14px!important}
+body.ov-mode .gen h3{color:var(--hot2)!important}
+body.ov-mode .gen p{font-size:12.5px!important;color:var(--dim)}
+body.ov-mode .imm-hero{background:linear-gradient(135deg,rgba(255,77,109,.22),rgba(255,77,109,.04))!important;border-radius:14px!important;margin:10px!important}
+body.ov-mode .imm-grid{grid-template-columns:1fr!important;padding:4px 10px!important}
+body.ov-mode .imm-card{background:rgba(255,255,255,.03)!important;border:1px solid var(--edge)!important}
+body.ov-mode .imm-card span{color:var(--ink);font-size:12px!important}
+
+/* окно статьи */
+body.ov-mode .ov{background:rgba(6,5,8,.5)!important}
+body.ov-mode .modal{background:linear-gradient(180deg,rgba(24,20,30,.97),rgba(18,15,24,.97))!important;border:1px solid var(--edge)!important;border-radius:20px!important;max-width:460px!important;width:calc(100% - 20px)!important}
+body.ov-mode .mh h2{font-size:16px!important;color:var(--ink)}
+body.ov-mode .mh p{color:var(--dim)!important}
+body.ov-mode .stats2{margin:0 12px!important;background:rgba(255,255,255,.03);border-color:var(--edge)!important;border-radius:14px!important}
+body.ov-mode .stats2 b{color:var(--ink)}
+body.ov-mode .txt{background:rgba(0,0,0,.25)!important;border-color:var(--edge)!important;color:var(--dim)!important;font-size:12px!important}
+body.ov-mode .note.rec{background:rgba(255,59,92,.1)!important}
+
+/* скроллбары и выделение */
+body.ov-mode ::selection{background:rgba(255,77,109,.35)}
+body.ov-mode ::-webkit-scrollbar{width:8px;height:8px}
+body.ov-mode ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:8px}
+body.ov-mode ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.26)}
+body.ov-mode ::-webkit-scrollbar-track{background:transparent}
+
+/* анимации */
+@keyframes slideIn{from{opacity:0;transform:translateX(24px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes rowIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes glow{0%,100%{box-shadow:0 0 12px -2px rgba(255,59,92,.6)}50%{box-shadow:0 0 20px 0 rgba(255,59,92,.9)}}
+
+body.ov-mode .name span{display:block;max-width:250px!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.ov-mode .shield{font-size:0!important;padding:2px 5px!important;margin-left:6px!important;vertical-align:middle}
+body.ov-mode .shield::before{content:"\1F6E1";font-size:10px}
+body.ov-mode .name{max-width:260px!important}
+body.ov-mode tbody td:nth-child(n+3){white-space:nowrap}
+
+/* v7: без обрезки текста, компактная панель */
+body.ov-mode .name span{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;display:block;line-height:1.35}
+body.ov-mode tbody td{vertical-align:middle}
+body.ov-mode .name{white-space:normal!important}
+body.ov-mode .bar{padding:6px 8px 6px 10px!important;border-radius:14px!important}
+body.ov-mode .logo{width:20px!important;height:20px!important}
+body.ov-mode #gq{font-size:13px!important}
+body.ov-mode .seg button{padding:4px 8px!important;font-size:11.5px!important}
+body.ov-mode .pill{display:none!important}
+body.ov-mode .toolbar .count{display:none!important}
+body.ov-mode .wrap{padding:8px!important;gap:8px!important}
+
+body.ov-mode thead th:nth-child(7),body.ov-mode tbody td:nth-child(7){display:none!important}
+body.ov-mode .name{width:44%}
+body.ov-mode td.r.num{white-space:nowrap}
+body.ov-mode .stars{white-space:nowrap}
 </style></head>
 <body>
 <input id="aq" hidden><input id="sq" hidden>

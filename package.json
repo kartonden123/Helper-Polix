@@ -21,7 +21,8 @@
       "main.js",
       "preload.js",
       "index.html",
-      "overlay.css"
+      "overlay.css",
+      "tray.png"
     ],
     "publish": null,
     "win": {
