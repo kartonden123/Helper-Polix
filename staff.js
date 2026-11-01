@@ -6,12 +6,13 @@
   if (!S || !X || !(window.overlay && window.overlay.staffApi)) return;
   const $ = (s) => document.querySelector(s);
   const { LS } = X;
-  const RN = { owner: 'Главный Администратор', admin: 'Администратор', jr: 'Мл. Администратор', mod: 'Модератор' };
-  const RK = { owner: 4, admin: 3, jr: 2, mod: 1 };
-  const RC = { owner: '#ffd34d', admin: '#ff6b6b', jr: '#ff9d4d', mod: '#6bb7ff' };
+  const RN = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор' };
+  const RK = { owner: 5, admin: 4, jr: 3, smod: 2, mod: 1 };
+  const RC = { owner: '#ff2d55', admin: '#ff8a3d', jr: '#ffd34d', smod: '#b387ff', mod: '#6bb7ff' };
   const rank = (r) => RK[r] || 0;
-  const rb = (r) => (r ? `<span class="rbadge" style="--c:${RC[r]}">${RN[r]}</span>` : '');
-  const pb = (p, r) => (p && !r ? '<span class="rbadge" style="--c:#ffc43c">Premium</span>' : '');
+  const rb = (r) => (r ? `<span class="rbadge" style="--c:${RC[r] || '#ccc'}">${RN[r] || esc(r)}</span>` : '');
+  const tierOf = (u) => u.tier || (u.premium ? 'premium' : '');
+  const pb = (u) => { const t = tierOf(u); return t === 'ultra' && !(RK[u.role] >= 4) ? '<span class="rbadge" style="--c:#5ef0ff">💎 Ультра</span>' : t === 'premium' && !u.role ? '<span class="rbadge" style="--c:#ffc43c">Premium</span>' : ''; };
 
   const css = document.createElement('style');
   css.textContent = `
@@ -50,42 +51,42 @@
     const d = await api('GET', '/online');
     if (!d || d.error) { list.innerHTML = backBtn() + `<div class="det"><h2>👥 В сети</h2><p class="t">${esc((d && d.error) || 'Ошибка')}</p></div>`; $('#bk').onclick = goBack; return; }
     list.innerHTML = backBtn() + `<div class="det"><h2>👥 В сети: ${d.online}</h2><p class="t">Пользователи хелпера за последние 35 минут. Всего зарегистрировано: ${d.total}.</p>
-      ${d.users.map((u) => `<div class="urow"><span class="dot on"></span><span>${esc(u.name)}${rb(u.role)}${pb(u.premium, u.role)}</span><small>v${esc(u.version || '?')}</small></div>`).join('') || '<div class="empty">Сейчас никого нет</div>'}</div>`;
+      ${d.users.map((u) => `<div class="urow"><span class="dot on"></span><span>${esc(u.name)}${rb(u.role)}${pb(u)}</span><small>v${esc(u.version || '?')}</small></div>`).join('') || '<div class="empty">Сейчас никого нет</div>'}</div>`;
     $('#bk').onclick = goBack;
   }
 
   /* ---------- Панель персонала ---------- */
-  let cache = null;
+  let cache = null, filt = '';
   function roleOptions(cur, target) {
     const mineRank = rank(S.role);
-    const opts = [['', 'Без роли'], ['mod', 'Модератор'], ['jr', 'Мл. Администратор']];
-    if (S.role === 'owner') opts.push(['admin', 'Администратор']);
+    const opts = [['', 'Без роли'], ['mod', 'Модератор'], ['smod', 'Ст. Модератор'], ['jr', 'Мл. Администратор']];
+    if (S.role === 'owner') opts.push(['admin', 'Зам. Администратор']);
     return opts.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('');
   }
-  function canEdit(u) { return S.role === 'owner' ? u.role !== 'owner' : rank(S.role) >= 3 && rank(u.role) < rank(S.role); }
+  function canEdit(u) { return S.role === 'owner' ? u.role !== 'owner' : rank(S.role) >= 4 && rank(u.role) < rank(S.role); }
 
   function userRow(u) {
     const mine = rank(S.role);
     const staff = u.role !== '';
-    const premBtn = mine >= 2 && !staff ? `<button class="mini${u.premium ? ' on' : ''}" data-a="prem" data-id="${esc(u.id)}">${u.premium ? '⭐ снять' : '☆ выдать'}</button>` : '';
-    const roleSel = mine >= 3 && canEdit(u) ? `<select class="mini" data-a="role" data-id="${esc(u.id)}">${roleOptions(u.role, u)}</select>` : '';
-    const banBtn = mine >= 3 && canEdit(u) ? `<button class="mini${u.banned ? ' bad' : ''}" data-a="ban" data-id="${esc(u.id)}">${u.banned ? '✔ разблок.' : '🚫 блок'}</button>` : '';
-    return `<div class="urow" data-uid="${esc(u.id)}"><span class="dot${u.online ? ' on' : ''}"></span><span>${esc(u.name)}${rb(u.role)}${pb(u.premium, u.role)}${u.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}<br><small>${esc(u.id)} · v${esc(u.version || '?')} · ${ago(u.last_seen)}</small></span><div class="uact">${premBtn}${roleSel}${banBtn}</div></div>`;
+    const premBtn = mine >= 3 && !staff ? `<select class="mini" data-a="tier" data-id="${esc(u.id)}"><option value="0"${tierOf(u) === '' ? ' selected' : ''}>Без Premium</option><option value="1"${tierOf(u) === 'premium' ? ' selected' : ''}>⭐ Premium</option>${mine >= 4 ? `<option value="2"${tierOf(u) === 'ultra' ? ' selected' : ''}>💎 Ультра</option>` : ''}</select>` : '';
+    const roleSel = mine >= 4 && canEdit(u) ? `<select class="mini" data-a="role" data-id="${esc(u.id)}">${roleOptions(u.role, u)}</select>` : '';
+    const banBtn = mine >= 4 && canEdit(u) ? `<button class="mini${u.banned ? ' bad' : ''}" data-a="ban" data-id="${esc(u.id)}">${u.banned ? '✔ разблок.' : '🚫 блок'}</button>` : '';
+    return `<div class="urow" data-uid="${esc(u.id)}"><span class="dot${u.online ? ' on' : ''}"></span><span>${esc(u.name)}${rb(u.role)}${pb(u)}${u.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}<br><small>${esc(u.id)} · v${esc(u.version || '?')} · ${ago(u.last_seen)}</small></span><div class="uact">${premBtn}${roleSel}${banBtn}</div></div>`;
   }
 
   async function act(kind, id, extra) {
     let path, body;
-    if (kind === 'prem') { path = '/staff/premium'; body = { id, on: extra }; }
+    if (kind === 'prem') { path = '/staff/premium'; body = { id, tier: extra }; }
     else if (kind === 'role') { path = '/staff/role'; body = { id, role: extra }; }
     else { path = '/staff/ban'; body = { id, on: extra }; }
     say('Отправляю…', true);
     const r = await api('POST', path, body);
     if (!r || r.error) { say('Ошибка: ' + ((r && r.error) || 'нет ответа от сервера'), false); return null; }
-    say(kind === 'prem' ? (r.premium ? 'Premium выдан: ' : 'Premium снят: ') + id : kind === 'role' ? (r.role ? 'Роль «' + RN[r.role] + '» назначена: ' : 'Роль снята: ') + id : (r.banned ? 'Заблокирован: ' : 'Разблокирован: ') + id, true);
+    say(kind === 'prem' ? (r.tier === 'ultra' ? 'Ультра Премиум выдан: ' : r.premium ? 'Premium выдан: ' : 'Premium снят: ') + id : kind === 'role' ? (r.role ? 'Роль «' + RN[r.role] + '» назначена: ' : 'Роль снята: ') + id : (r.banned ? 'Заблокирован: ' : 'Разблокирован: ') + id, true);
     // сразу обновляем строку локально: список на сервере обновляется с задержкой до минуты
     if (cache) {
       const u = cache.users.find((x) => x.id === id);
-      if (u) { if (kind === 'prem') u.premium = r.premium; else if (kind === 'role') { u.role = r.role; u.premium = r.premium || !!r.role; } else u.banned = r.banned; }
+      if (u) { if (kind === 'prem') { u.premium = r.premium; u.tier = r.tier; } else if (kind === 'role') { u.role = r.role; u.premium = r.premium || !!r.role; if (r.role) u.tier = RK[r.role] >= 4 ? 'ultra' : 'premium'; } else u.banned = r.banned; }
     }
     return r;
   }
@@ -94,9 +95,10 @@
     list.querySelectorAll('[data-a]').forEach((el) => {
       const id = el.dataset.id, a = el.dataset.a;
       if (a === 'role') el.onchange = async () => { await act('role', id, el.value); drawUsers(); };
+      else if (a === 'tier') el.onchange = async () => { await act('prem', id, +el.value); drawUsers(); };
       else el.onclick = async () => {
         const u = cache.users.find((x) => x.id === id); if (!u) return;
-        await act(a, id, a === 'prem' ? !u.premium : !u.banned); drawUsers();
+        await act(a, id, !u.banned); drawUsers();
       };
     });
   }
@@ -104,8 +106,11 @@
     const box = $('#stBody'); if (!box || !cache) return;
     const d = cache;
     box.innerHTML = `<div class="adm-top"><div><small>Всего</small><b>${d.total}</b></div><div><small>В сети</small><b style="color:#3ddc84">${d.online}</b></div><div><small>За 24 часа</small><b>${d.day}</b></div><div><small>Premium</small><b>${d.premiumCount}</b></div></div>
-      <div class="stmsg" id="stMsg"></div>${d.users.map(userRow).join('') || '<div class="empty">Пока никого</div>'}`;
-    bindUsers(); paintMsg();
+      <input class="fld" id="stFilter" placeholder="Поиск по имени или ID" value="${esc(filt)}"><div class="actions"><button class="abtn" id="stCopy">📋 Копировать список</button></div><div class="stmsg" id="stMsg"></div><div id="stList"></div>`;
+    const paint = () => { const f = filt.toLowerCase(); const arr = d.users.filter((u) => !f || (u.name || '').toLowerCase().includes(f) || u.id.includes(f)); $('#stList').innerHTML = arr.map(userRow).join('') || '<div class="empty">Никого не найдено</div>'; bindUsers(); paintMsg(); };
+    const fi = $('#stFilter'); fi.addEventListener('keydown', (e) => e.stopPropagation()); fi.oninput = () => { filt = fi.value; paint(); };
+    $('#stCopy').onclick = () => X.copy(d.users.map((u) => u.name + ' | ' + u.id + ' | ' + (RN[u.role] || '') + ' | ' + tierOf(u) + ' | v' + (u.version || '?')).join('\n'), $('#stCopy'));
+    paint();
   }
 
   function openStaff(tab) {
@@ -113,7 +118,7 @@
     view = 'memo'; panel.classList.add('on');
     const mine = rank(S.role);
     list.innerHTML = backBtn() + `<div class="det"><h2>👑 Панель персонала</h2><p class="t">Ваша роль: ${rb(S.role) || 'нет'}</p>
-      <div class="stab"><button class="abtn${tab === 'users' ? ' on' : ''}" data-t="users">👥 Люди</button>${mine >= 2 ? `<button class="abtn${tab === 'id' ? ' on' : ''}" data-t="id">🔑 По Discord ID</button>` : ''}${mine >= 3 ? `<button class="abtn${tab === 'ann' ? ' on' : ''}" data-t="ann">📢 Объявление</button>` : ''}</div>
+      <div class="stab"><button class="abtn${tab === 'users' ? ' on' : ''}" data-t="users">👥 Люди</button>${mine >= 3 ? `<button class="abtn${tab === 'id' ? ' on' : ''}" data-t="id">🔑 По Discord ID</button>` : ''}${mine >= 4 ? `<button class="abtn${tab === 'ann' ? ' on' : ''}" data-t="ann">📢 Объявление</button>` : ''}</div>
       <div id="stBody"><p class="t">Загрузка…</p></div></div>`;
     $('#bk').onclick = goBack; $('#cnt').textContent = '';
     list.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => openStaff(b.dataset.t)));
@@ -124,8 +129,8 @@
       });
     } else if (tab === 'id') {
       $('#stBody').innerHTML = `<input class="fld" id="stId" placeholder="Discord ID человека (ПКМ по нему → Копировать ID)"><div class="stmsg" id="stMsg"></div><div id="stInfo"></div>
-        <div class="actions"><button class="abtn" id="stLook">🔎 Проверить</button><button class="abtn on" id="stPOn">⭐ Выдать Premium</button><button class="abtn" id="stPOff">Снять Premium</button></div>
-        ${mine >= 3 ? `<div class="actions"><select class="mini" id="stRole">${roleOptions('', {})}</select><button class="abtn" id="stRoleGo">Назначить роль</button><button class="abtn" id="stBanOn">🚫 Заблокировать</button><button class="abtn" id="stBanOff">Разблокировать</button></div>` : ''}`;
+        <div class="actions"><button class="abtn" id="stLook">🔎 Проверить</button><button class="abtn on" id="stPOn">⭐ Premium</button>${mine >= 4 ? '<button class="abtn on" id="stUOn">💎 Ультра Премиум</button>' : ''}<button class="abtn" id="stPOff">Снять</button></div>
+        ${mine >= 4 ? `<div class="actions"><select class="mini" id="stRole">${roleOptions('', {})}</select><button class="abtn" id="stRoleGo">Назначить роль</button><button class="abtn" id="stBanOn">🚫 Заблокировать</button><button class="abtn" id="stBanOff">Разблокировать</button></div>` : ''}`;
       $('#stId').addEventListener('keydown', (e) => e.stopPropagation());
       const gid = () => { const v = $('#stId').value.trim(); if (!/^\d{5,25}$/.test(v)) { say('Введите Discord ID: только цифры.', false); return null; } return v; };
       $('#stLook').onclick = async () => {
@@ -133,11 +138,12 @@
         const r = await api('GET', '/staff/lookup?id=' + id);
         if (!r || r.error) return say('Ошибка: ' + ((r && r.error) || 'нет ответа'), false);
         say('Данные с сервера получены', true);
-        $('#stInfo').innerHTML = `<div class="note">${r.seen ? esc(r.seen.name) : 'Ещё не заходил в хелпер'}${rb(r.role)}${r.premium ? '<span class="rbadge" style="--c:#ffc43c">Premium</span>' : ''}${r.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}</div>`;
+        $('#stInfo').innerHTML = `<div class="note">${r.seen ? esc(r.seen.name) : 'Ещё не заходил в хелпер'}${rb(r.role)}${pb(r)}${r.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}</div>`;
       };
-      $('#stPOn').onclick = async () => { const id = gid(); if (id) await act('prem', id, true); };
-      $('#stPOff').onclick = async () => { const id = gid(); if (id) await act('prem', id, false); };
-      if (mine >= 3) {
+      $('#stPOn').onclick = async () => { const id = gid(); if (id) await act('prem', id, 1); };
+      if (mine >= 4) $('#stUOn').onclick = async () => { const id = gid(); if (id) await act('prem', id, 2); };
+      $('#stPOff').onclick = async () => { const id = gid(); if (id) await act('prem', id, 0); };
+      if (mine >= 4) {
         $('#stRoleGo').onclick = async () => { const id = gid(); if (id) await act('role', id, $('#stRole').value); };
         $('#stBanOn').onclick = async () => { const id = gid(); if (id) await act('ban', id, true); };
         $('#stBanOff').onclick = async () => { const id = gid(); if (id) await act('ban', id, false); };
@@ -168,7 +174,7 @@
 
   function apply(s) {
     if (!s) return;
-    S.role = s.role || ''; S.rank = rank(S.role); S.premium = !!s.premium; S.admin = S.role === 'owner';
+    S.role = s.role || ''; S.rank = rank(S.role); S.premium = !!s.premium; S.admin = S.role === 'owner'; S.tier = s.tier || (S.premium ? 'premium' : ''); S.ultra = S.tier === 'ultra';
     if (s.user) S.id = s.user.id;
     if (s.banned) {
       document.getElementById('ui').innerHTML = '<div class="bancard"><div style="font-size:34px">🚫</div><h2 style="margin:8px 0">Доступ ограничен</h2><p style="color:#cfc8d3">Администратор ограничил вам доступ к хелперу. Если это ошибка, напишите администрации семьи.</p></div>';
@@ -178,6 +184,7 @@
     if (b) { b.style.display = S.rank >= 1 ? '' : 'none'; b.title = S.rank >= 1 ? 'Панель персонала: ' + RN[S.role] : ''; b.onclick = () => openStaff('users'); }
     showAnnounce(s.announce);
     X.applyTheme(LS.get('ph_theme', 'scarlet'));
+    if (window.PHX_applyLook) window.PHX_applyLook();
   }
   function refresh() { if (window.overlay.authState) window.overlay.authState().then((s) => setTimeout(() => apply(s), 80)); }
   refresh();

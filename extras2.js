@@ -164,20 +164,32 @@
   }, 1000);
 
   /* ===== 8. Настройки (Premium): тема, размер текста, прозрачность, положение ===== */
+  function hexRgb(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
   function openSettings() {
     view = 'memo'; panel.classList.add('on');
-    const cur = LS.get('ph_theme', 'scarlet'), zoom = LS.get('ph_zoom', 100), op = LS.get('ph_op', 100);
+    const cur = LS.get('ph_theme', 'scarlet'), zoom = LS.get('ph_zoom', 100), op = LS.get('ph_op', 100), blur = !!LS.get('ph_blur', false), acc = LS.get('ph_acc', '#ff4d6d');
     const ver = (window.overlay && window.overlay.version) || '';
+    const tierName = S.admin ? 'Главный Администратор' : S.ultra ? 'Ультра Премиум' : S.premium ? 'Premium' : 'Обычный доступ';
+    const lock = (t) => `<div class="set-row lockrow">🔒 ${t}</div>`;
     const premBlock = S.premium ? `
-      <div class="set-row">Тема</div><div class="sw">${Object.keys(X.THEMES).map((k) => `<button class="swb${k === cur ? ' on' : ''}" data-t="${k}"><i style="background:${X.THEMES[k][0]}"></i>${X.THEMES[k][2]}</button>`).join('')}</div>
-      <div class="set-row">Размер текста: <b id="zv">${zoom}%</b></div><input class="rng" id="zr" type="range" min="80" max="140" step="5" value="${zoom}">
-      <div class="set-row">Прозрачность окна: <b id="ov">${op}%</b></div><input class="rng" id="or" type="range" min="40" max="100" step="5" value="${op}">
+      <div class="set-sec">⭐ Premium</div>
+      <div class="set-row">Тема</div><div class="sw">${Object.keys(X.THEMES).map((k) => `<button class="swb${k === cur && !(S.ultra && LS.get('ph_accOn', false)) ? ' on' : ''}" data-t="${k}"><i style="background:${X.THEMES[k][0]}"></i>${X.THEMES[k][2]}</button>`).join('')}</div>
+      <div class="set-row">Прозрачность фона: <b id="ov">${op}%</b> <small>(текст остаётся чётким)</small></div><input class="rng" id="or" type="range" min="25" max="100" step="5" value="${op}">
       <div class="set-row">Положение окна</div><div class="actions"><button class="abtn" data-p="left">◀ Слева</button><button class="abtn" data-p="center">● По центру</button><button class="abtn" data-p="right">Справа ▶</button></div>`
-      : `<div class="set-row">Тема, размер текста, прозрачность и положение окна доступны с <b>Premium</b>.</div>`;
+      : lock('Темы, прозрачность фона и положение окна доступны с Premium.');
+    const ultraBlock = S.ultra ? `
+      <div class="set-sec">💎 Ультра Премиум</div>
+      <div class="actions"><button class="abtn${blur ? ' on' : ''}" id="blurBtn">${blur ? '✔ Размытие фона включено' : '🌫 Размытие фона'}</button></div>
+      <div class="set-row">Свой цвет оформления <input type="color" id="accPick" value="${esc(acc)}" style="vertical-align:middle;margin-left:8px;width:42px;height:26px;border:0;background:none;cursor:pointer"> <button class="mini" id="accOn">${LS.get('ph_accOn', false) ? '✔ включён' : 'применить'}</button></div>
+      <div class="set-row"><small>ИИ-помощник: 100 вопросов в день. Размытие работает на Windows 11 и заметно при прозрачности фона ниже 100%.</small></div>`
+      : (S.premium ? lock('Ультра Премиум: размытие фона, свой цвет, ИИ на 100 вопросов в день. Выдаёт администрация.') : '');
     list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
-      <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · для семьи Polix</small></div></div>
-      <div class="actions"><button class="abtn" id="updChk">🔄 Проверить обновления</button></div><div class="set-row" id="updRes"></div>
-      ${premBlock}</div>`;    $('#bk').onclick = goBack; $('#cnt').textContent = '';
+      <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · ${esc(tierName)}</small></div></div>
+      <div class="actions"><button class="abtn" id="updChk">🔄 Проверить обновления</button><button class="abtn" id="autoBtn">🚀 Автозапуск с Windows…</button></div><div class="set-row" id="updRes"></div>
+      <div class="set-row">Размер текста: <b id="zv">${zoom}%</b></div><input class="rng" id="zr" type="range" min="80" max="140" step="5" value="${zoom}">
+      ${premBlock}${ultraBlock}</div>`;
+    $('#bk').onclick = goBack; $('#cnt').textContent = '';
+    if (window.overlay.autostartGet) window.overlay.autostartGet().then((on) => { const b = $('#autoBtn'); if (b) { b.textContent = on ? '✔ Автозапуск с Windows включён' : '🚀 Включить автозапуск с Windows'; b.classList.toggle('on', !!on); b.onclick = () => window.overlay.autostartSet(!on).then(() => openSettings()); } });
     $('#updChk').onclick = async () => {
       const r = $('#updRes'), b = $('#updChk'); b.disabled = true; r.textContent = 'Проверяю…';
       const res = window.overlay.checkUpdate ? await window.overlay.checkUpdate() : { state: 'error' };
@@ -185,14 +197,25 @@
       const M = { latest: '✅ У вас последняя версия ' + (res.current || ver), available: '⬇ Доступна версия ' + res.version + '. Карточка с кнопкой «Скачать» вверху меню.', downloading: '⬇ Версия ' + res.version + ' скачивается…', ready: '✅ Версия ' + res.version + ' скачана. Нажмите «Установить» вверху меню.', dev: 'Режим разработки: проверка недоступна.', error: '⚠ Не удалось проверить. Проверьте интернет.' };
       r.textContent = M[res.state] || M.error;
     };
-    list.querySelectorAll('.swb').forEach((b) => (b.onclick = () => { LS.set('ph_theme', b.dataset.t); X.applyTheme(b.dataset.t); openSettings(); }));
-    if (!S.premium) return;
     $('#zr').oninput = (e) => { LS.set('ph_zoom', +e.target.value); $('#zv').textContent = e.target.value + '%'; applyZoom(); };
-    $('#or').oninput = (e) => { LS.set('ph_op', +e.target.value); $('#ov').textContent = e.target.value + '%'; applyOpacity(); };
+    if (!S.premium) return;
+    list.querySelectorAll('.swb').forEach((b) => (b.onclick = () => { LS.set('ph_theme', b.dataset.t); LS.set('ph_accOn', false); X.applyTheme(b.dataset.t); openSettings(); }));
+    $('#or').oninput = (e) => { LS.set('ph_op', +e.target.value); $('#ov').textContent = e.target.value + '%'; applyLook(); };
     list.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { LS.set('ph_pos', b.dataset.p); applyPos(); }));
+    if (!S.ultra) return;
+    $('#blurBtn').onclick = () => { LS.set('ph_blur', !LS.get('ph_blur', false)); applyLook(); openSettings(); };
+    $('#accPick').oninput = (e) => { LS.set('ph_acc', e.target.value); if (LS.get('ph_accOn', false)) X.applyTheme(); };
+    $('#accOn').onclick = () => { LS.set('ph_accOn', !LS.get('ph_accOn', false)); X.applyTheme(); openSettings(); };
   }
   const applyZoom = () => { document.body.style.zoom = String(LS.get('ph_zoom', 100) / 100); };
-  const applyOpacity = () => { if (window.overlay && window.overlay.setOpacity) window.overlay.setOpacity(LS.get('ph_op', 100) / 100); };
+  // прозрачность касается только фона панелей, текст всегда непрозрачный; размытие фона даёт само окно (Windows 11)
+  const applyLook = () => {
+    const a = S.premium ? Math.min(1, Math.max(0.25, LS.get('ph_op', 100) / 100)) : 1;
+    document.documentElement.style.setProperty('--glass', `linear-gradient(180deg,rgba(34,31,39,${a}) 0%,rgba(22,20,26,${a}) 100%)`);
+    document.documentElement.style.setProperty('--solid', `rgba(27,23,29,${Math.max(a, 0.5)})`);
+    if (window.overlay && window.overlay.setBlur) window.overlay.setBlur(!!(S.ultra && LS.get('ph_blur', false) && a < 1));
+  };
+  window.PHX_applyLook = applyLook;
   const applyPos = () => { if (window.overlay && window.overlay.setPosition) window.overlay.setPosition(LS.get('ph_pos', 'center')); };
 
   /* ===== Кнопки в панели ===== */
@@ -246,6 +269,6 @@
   if (window.overlay && window.overlay.onShow) window.overlay.onShow(refreshStatus);
   setInterval(refreshStatus, 5 * 60 * 1000);
   const b0 = $('#admBtn'); if (b0) b0.onclick = openAdmin;
-  applyZoom(); applyOpacity(); applyPos();
+  applyZoom(); applyLook(); applyPos();
   render();
 })();

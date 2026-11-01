@@ -11,6 +11,7 @@ const WIDTH = 880;
 const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
+const STARTED_HIDDEN = process.argv.includes('--hidden');   // запуск вместе с Windows: сидим в трее, меню открывается по Alt+Q
 const DEBUG = false;           // true: лог и DevTools
 
 let win = null;
@@ -81,7 +82,7 @@ function createWindow() {
   loadContent();
 
   win.webContents.on('did-fail-load', (_e, code, desc) => log(`did-fail-load ${code} ${desc}`));
-  win.once('ready-to-show', () => { win.show(); visible = true; });
+  win.once('ready-to-show', () => { if (STARTED_HIDDEN && auth.get().ok) { visible = false; updateTrayMenu(); } else { win.show(); visible = true; } });
   if (DEBUG) win.webContents.openDevTools({ mode: 'detach' });
 
   // закрытие окна = скрыть в трей, а не выход
@@ -221,6 +222,12 @@ ipcMain.on('update-action', (_e, a) => {
     updateTrayMenu();
   }
 });
+// автозапуск с Windows (по умолчанию включён при первом запуске) и размытие фона (Ультра Премиум)
+const AUTOSTART_FLAG = () => path.join(app.getPath('userData'), 'autostart-init');
+function setAutostart(on) { if (!app.isPackaged) return; try { app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); } catch (e) { log('autostart error ' + e.message); } }
+ipcMain.handle('autostart-get', () => (app.isPackaged ? app.getLoginItemSettings().openAtLogin : false));
+ipcMain.handle('autostart-set', (_e, on) => { setAutostart(on); return app.isPackaged ? app.getLoginItemSettings().openAtLogin : false; });
+ipcMain.on('ov-blur', (_e, on) => { try { if (win && typeof win.setBackgroundMaterial === 'function') win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch (e) { log('blur error ' + e.message); } });
 ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
   if (!win) return;
@@ -230,30 +237,33 @@ ipcMain.on('ov-position', (_e, side) => {
 });
 // Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
-let me = { premium: false, role: '', banned: false, announce: null };
+let me = { premium: false, tier: '', role: '', banned: false, announce: null };
 try { me = { ...me, ...JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')) }; } catch (e) {}
 let meKnown = fs.existsSync(PREMIUM_FILE());
-const RN_RU = { owner: 'Главный Администратор', admin: 'Администратор', jr: 'Мл. Администратор', mod: 'Модератор' };
+const RN_RU = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор' };
 function diffMe(a, b, isOwner) {
   if (isOwner) { if (b.announce && (!a.announce || a.announce.id !== b.announce.id)) { /* свои объявления не показываем */ } return; }
   if (a.role !== b.role) {
     if (b.role) notify('Вам назначена роль', RN_RU[b.role] || b.role, 'role');
     else notify('Роль снята', 'Вы больше не ' + (RN_RU[a.role] || 'сотрудник').toLowerCase(), 'role');
   }
-  if (!a.premium && b.premium && !b.role) notify('Вам выдан Premium', 'Открыты калькулятор дела, избранное, заметки, таймеры и настройки.', 'premium');
-  if (a.premium && !b.premium && !a.role) notify('Premium снят', 'Дополнительные функции отключены.', 'premium');
+  if (a.tier !== b.tier && !a.role && !b.role) {
+    if (b.tier === 'ultra') notify('Вам выдан Ультра Премиум', 'Открыты все функции: размытие фона, свой цвет, ИИ 100 вопросов в день.', 'premium');
+    else if (b.tier === 'premium') notify(a.tier === 'ultra' ? 'Ультра Премиум снят' : 'Вам выдан Premium', a.tier === 'ultra' ? 'Остался обычный Premium.' : 'Открыты калькулятор дела, избранное, заметки, таймеры и настройки.', 'premium');
+    else notify(a.tier === 'ultra' ? 'Ультра Премиум снят' : 'Premium снят', 'Дополнительные функции отключены.', 'premium');
+  }
   if (!a.banned && b.banned) notify('Доступ ограничен', 'Администратор заблокировал вам доступ к хелперу.', 'ban');
   if (a.banned && !b.banned) notify('Доступ восстановлен', 'Блокировка снята.', 'ban');
   if (b.announce && b.announce.text && (!a.announce || a.announce.id !== b.announce.id)) notify('Объявление', b.announce.text, 'announce');
 }
 async function refreshMe() {
   const t = auth.token();
-  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false, role: '', banned: false, announce: null }; return; }
+  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false, tier: '', role: '', banned: false, announce: null }; return; }
   try {
     const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
     if (r.ok) {
       const d = await r.json();
-      const nm = { premium: !!d.premium, role: d.role || '', banned: !!d.banned, announce: d.announce || null };
+      const nm = { premium: !!d.premium, tier: d.tier || (d.premium ? 'premium' : ''), role: d.role || '', banned: !!d.banned, announce: d.announce || null };
       if (meKnown) diffMe(me, nm, !!d.admin);
       meKnown = true; me = nm;
       try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {}
@@ -264,7 +274,7 @@ ipcMain.handle('auth-state', async () => {
   await refreshMe();
   const s = auth.get();
   const role = s.ok ? (s.admin ? 'owner' : me.role) : '';
-  return { ...s, role, staff: !!role, premium: !!(s.ok && (role || me.premium)), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
+  return { ...s, role, staff: !!role, premium: !!(s.ok && (role || me.premium)), tier: !s.ok ? '' : (s.admin ? 'ultra' : (me.tier || (role || me.premium ? 'premium' : ''))), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
 });
 // панель персонала и список «В сети»: права проверяет сервер
 ipcMain.handle('staff-api', async (_e, method, apiPath, body) => {
@@ -326,6 +336,7 @@ app.whenReady().then(async () => {
   setTimeout(refreshMe, 20000);
   setInterval(refreshMe, 3 * 60 * 1000);
   createTray();
+  if (app.isPackaged && !fs.existsSync(AUTOSTART_FLAG())) { setAutostart(true); try { fs.writeFileSync(AUTOSTART_FLAG(), '1'); } catch (e) {} }
   setupUpdater();
   const keys = [TOGGLE_KEY, 'Control+Alt+Q'];
   const regKeys = () => keys.forEach(k => {

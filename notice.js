@@ -7,6 +7,7 @@
   .toast b{display:block;margin-bottom:2px}.toast span{color:#cfc8d3;font-size:12px;line-height:1.35}
   .toast i{font-style:normal;font-size:18px}
   .toast.out{animation:toastOut .3s both}
+  .set-sec{margin:14px 0 4px;font-weight:700;font-size:13px;color:var(--accent)}.lockrow{color:#a99fb0;font-size:12px}
   .about{display:flex;align-items:center;gap:12px;margin:2px 0 12px}.about img{width:42px;height:42px;border-radius:10px}
   .about small{display:block;color:#a99fb0;font-size:12px;margin-top:2px}
   @keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}

@@ -46,9 +46,11 @@
   document.head.appendChild(css);
 
   function applyTheme(name) {
-    const t = THEMES[S.premium ? name : 'scarlet'] || THEMES.scarlet;
+    const t = THEMES[S.premium ? (name || LS.get('ph_theme', 'scarlet')) : 'scarlet'] || THEMES.scarlet;
     const r = document.documentElement.style;
     r.setProperty('--accent', t[0]); r.setProperty('--acc-rgb', t[1]);
+    const c = S.ultra && LS.get('ph_accOn', false) && /^#([0-9a-f]{6})$/i.exec(LS.get('ph_acc', ''));
+    if (c) { const n = parseInt(c[1], 16); r.setProperty('--accent', c[0]); r.setProperty('--acc-rgb', ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255)); }
   }
 
   function copy(text, btn) {
@@ -191,7 +193,7 @@
   /* ----- Статус подписки ----- */
   if (window.overlay && window.overlay.authState) {
     window.overlay.authState().then((s) => {
-      S.premium = !!(s && s.premium); S.admin = !!(s && s.admin);
+      S.premium = !!(s && s.premium); S.admin = !!(s && s.admin); S.tier = (s && s.tier) || ''; S.ultra = S.tier === 'ultra';
       if (s && s.user) S.id = s.user.id;
       applyTheme(LS.get('ph_theme', 'scarlet'));
       const b = $('#admBtn'); if (S.admin && b) { b.style.display = ''; b.onclick = openAdmin; }

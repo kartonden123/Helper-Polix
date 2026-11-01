@@ -7,7 +7,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Segoe UI",Inter,system-ui,sans-serif;overflow:hidden;user-select:none}
 #ui{animation:uiIn .22s ease-out both;width:100%;padding:36px 14px 14px;display:flex;flex-direction:column}
-.tab{align-self:center;display:flex;gap:6px;align-items:center;background:#1d1a20;border:1px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;padding:4px 14px;font-size:12px;color:var(--muted);margin-bottom:-1px;position:relative;z-index:1;animation:fade .5s both}
+.tab{align-self:center;display:flex;gap:6px;align-items:center;background:var(--solid,#1d1a20);border:1px solid var(--line);border-bottom:0;border-radius:12px 12px 0 0;padding:4px 14px;font-size:12px;color:var(--muted);margin-bottom:-1px;position:relative;z-index:1;animation:fade .5s both}
 .tab b{color:var(--accent)}
 .brand{position:absolute;top:10px;left:26px;font-weight:800;font-size:13px;letter-spacing:.02em;animation:fade .5s both}
 .by{pointer-events:none;position:absolute;top:12px;right:26px;font-size:11px;color:var(--muted);letter-spacing:.06em;animation:fade .5s both}
@@ -26,6 +26,11 @@ html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Sego
 .ib:hover,.ib.on{color:#fff;border-color:rgba(var(--acc-rgb),.5);background:var(--accent-soft,rgba(var(--acc-rgb),.14))}
 .panel{margin-top:8px;background:var(--glass);border:1px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;display:none;flex-direction:column;min-height:0;box-shadow:0 20px 50px -18px rgba(0,0,0,.8);animation:drop .3s cubic-bezier(.2,.8,.2,1) both}
 .panel.on{display:flex}
+.cols{display:flex;min-height:0}.cols>#list{flex:1;min-width:0}
+#res{display:none;flex:none;width:340px;border-right:1px solid var(--line)}
+.panel.split #res{display:block}
+.panel.split #res .row{grid-template-columns:50px 1fr;padding:8px 10px;gap:10px}.panel.split #res .row .meta{display:none}.panel.split #res .name{font-size:12.5px}
+#res .snip.cur{background:rgba(var(--acc-rgb),.14)}
 .scroll{overflow-y:auto;min-height:0;padding:6px;max-height:var(--maxh,520px)}
 .scroll::-webkit-scrollbar{width:8px}.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:8px}
 .sec{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:10px 12px 4px}
@@ -93,15 +98,15 @@ mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 
   <div class="tab" id="tabhint">Alt+Q — показать / скрыть · <b>Esc</b> — назад</div>
   <div class="bar" id="bar">
     <img class="logo" src="logo.png" alt="">
-    <input id="q" placeholder="Статья или номер" autocomplete="off" spellcheck="false">
-    <div class="seg" id="seg"><button data-d="all" class="on">Все</button><button data-d="УК">УК</button><button data-d="ДК">ДК</button><button data-d="АК">АК</button></div>
+    <input id="q" placeholder="Статья, слово или «1.18 ПГО»" autocomplete="off" spellcheck="false">
+    <div class="seg" id="seg"><button data-d="rules">Правила</button><button data-d="law" class="on">Законы</button></div>
     <button class="ib" id="admBtn" title="Админ-панель" style="display:none">👑</button>
     <button class="ib" id="immBtn" title="Неприкосновенные лица">🛡</button>
     <button class="ib" id="memoBtn" title="Памятка">📖</button>
     <button class="ib" id="hideBtn" title="Скрыть (Alt+Q)">✕</button>
   </div>
   <div class="panel" id="panel">
-    <div class="scroll" id="list"></div>
+    <div class="cols"><div class="scroll" id="res"></div><div class="scroll" id="list"></div></div>
     <div class="foot"><span>↑↓ выбор</span><span>Enter открыть</span><span>Esc назад</span><span id="cnt" style="margin-left:auto"></span></div>
   </div>
 </div>
@@ -118,7 +123,7 @@ const shortCode=a=>a.code.replace(/^(ДК|АК) /,'');
 const IDX=ITEMS.map(a=>({a,code:norm(a.code.replace(/^(ДК|АК) /,'')),title:norm((a.title||'')+' '+(a.codeTitle||'')),text:norm(a.text)}));
 const ENT=[];DOCS.forEach(d=>d.paras.forEach(p=>{if(p.length>25)ENT.push({d,p,n:norm(p)});}));
 
-let doc='all',view='home',results=[],sel=0,last=null;
+let doc='law',view='home',results=[],sel=0,last=null;
 const panel=$('#panel'),list=$('#list'),q=$('#q');
 
 function mark(text,words){
@@ -128,37 +133,40 @@ function mark(text,words){
 }
 const ALIAS={'пго':'Правила государственных','осн':'Основные правила','основные':'Основные правила','пп':'Основные правила','ук':'Уголовный','дк':'Дорожный','ак':'Административный','пк':'Процессуальный','тк':'Трудовой','кэ':'Кодекс этики','лспд':'LSPD','lspd':'LSPD','фиб':'FIB','fib':'FIB','шериф':'Sheriff','шерифф':'Sheriff','lscsd':'Sheriff','sheriff':'Sheriff','санг':'San-Andreas','sang':'San-Andreas','ems':'EMS','емс':'EMS','прокуратура':'Прокуратуры','военное':'военного','ограбления':'ограблений','банки':'банков','бизнесы':'бизнесов','семьи':'семейных'};
 const ALIAS_SEG={'ук':1,'дк':1,'ак':1};
+const CATTAB=c=>(c==='rules'||c==='org')?'rules':'law';
 function search(raw){
-  let s=norm(raw.trim());if(!s)return{items:[],snips:[],words:[]};let dsel=doc;
+  let s=norm(raw.trim());if(!s)return{items:[],snips:[],words:[]};
   const tk=s.split(/\s+/);let dn=null,aliasTok=null;const nums=[],rest=[];
   for(let t of tk){
     t=t.replace(/^(п|ст|пп)\.?(?=\d)/,'');
-    if(/^(п|пункт|ст|статья|пп)\.?$/.test(t)&&tk.length>1&&t!=='пп'){continue;}
+    if(/^(п|пункт|ст|статья)\.?$/.test(t)&&tk.length>1)continue;
     if(ALIAS[t]&&!dn){dn=ALIAS[t];aliasTok=t;}
     else if(/^\d+(\.\d+)+\.?$/.test(t)||(/^\d+$/.test(t)&&tk.length>1))nums.push(t.replace(/\.$/,''));
     else rest.push(t);
   }
-  if(dn&&(nums.length||rest.length||true)&&(tk.length>1)){
+  const wd=a=>a.map(w=>/^[\d.]+$/.test(w)||w.length<5?w:w.slice(0,w.length-2));
+  let segDoc=null;
+  if(dn){
     const hit=e=>e.d.name.indexOf(dn)>=0;
+    const seg=ALIAS_SEG[aliasTok]?aliasTok.toUpperCase():null;
     if(nums.length){
       const res=new RegExp('^'+nums[0].replace(/\./g,'\\.')+'(?![\\d])');
       const pin=ENT.filter(e=>hit(e)&&res.test(e.p));
       let items=[];
-      if(ALIAS_SEG[aliasTok])items=IDX.filter(e=>e.a.doc===aliasTok.toUpperCase()&&e.code===nums[0]).map(e=>e.a);
-      if(pin.length||items.length)return{items,snips:pin.slice(0,8),words:[]};
-    }else if(!ALIAS_SEG[aliasTok]){
-      const ws=rest.map(w=>w.length<5?w:w.slice(0,w.length-2));
-      const sn=ENT.filter(e=>hit(e)&&ws.every(w=>e.n.includes(w))).slice(0,14);
-      if(sn.length)return{items:[],snips:sn,words:ws};
-    }else{
-      s=rest.join(' ');if(!s)return{items:[],snips:[],words:[]};dsel=aliasTok.toUpperCase();
-    }
+      if(seg)items=IDX.filter(e=>e.a.doc===seg&&e.code===nums[0]).map(e=>e.a);
+      if(pin.length||items.length)return{items,snips:pin.slice(0,8),words:[],tab:items.length?'law':CATTAB(pin[0].d.cat)};
+    }else if(!seg){
+      const ws=wd(rest);
+      const sn=ENT.filter(e=>hit(e)&&ws.every(w=>e.n.includes(w))).slice(0,rest.length?14:30);
+      if(sn.length)return{items:[],snips:sn,words:ws,tab:CATTAB(sn[0].d.cat)};
+    }else{segDoc=seg;s=rest.join(' ');if(!s)return{items:[],snips:[],words:[],tab:'law'};}
   }
-  const words=s.split(/\s+/).filter(Boolean).map(w=>/^[\d.]+$/.test(w)||w.length<5?w:w.slice(0,w.length-2));
+  const words=wd(s.split(/\s+/).filter(Boolean));
   const isNum=/^[\d.]+$/.test(s);
+  const tab=segDoc?'law':doc;
   const items=[];
-  for(const e of IDX){
-    if(dsel!=='all'&&e.a.doc!==dsel)continue;
+  if(tab==='law')for(const e of IDX){
+    if(segDoc&&e.a.doc!==segDoc)continue;
     let sc=0;
     if(isNum){if(e.code===s)sc=100;else if(e.code.startsWith(s))sc=60-Math.min(e.code.length,30);else continue;}
     else{
@@ -170,16 +178,15 @@ function search(raw){
   items.sort((x,y)=>y.sc-x.sc);
   const snips=[];const cnt={};
   if(!isNum&&s.length>=3){
+    const segName=segDoc==='ДК'?'Дорожный':segDoc==='УК'?'Уголовный':segDoc==='АК'?'Административный':null;
     for(const e of ENT){
-      if(dsel==='ДК'&&e.d.name.indexOf('Дорожный')<0)continue;
-      if(dsel==='УК'&&e.d.name.indexOf('Уголовный')<0)continue;
-      if(dsel==='АК'&&e.d.name.indexOf('Административный')<0)continue;
+      if(CATTAB(e.d.cat)!==tab)continue;
+      if(segName&&e.d.name.indexOf(segName)<0)continue;
       if(words.every(w=>e.n.includes(w))){const c=(cnt[e.d.name]||0);if(c<3){cnt[e.d.name]=c+1;snips.push(e);if(snips.length>=14)break;}}
     }
   }
   return{items:items.slice(0,40).map(x=>x.a),snips,words};
-}
-function row(a,i,words){
+}function row(a,i,words){
   const t=a.title||a.codeTitle||'';
   const m=a.wanted?`<span class="pill w${a.wanted>=4?' w4':''}">${stars(a.wanted)}</span><span>${a.prison?a.prison+' мес.':''}${a.record?' <span class="rec">СУДИМОСТЬ</span>':''}</span>`:(a.fine?'<span class="pill">до $'+esc(a.fine.replace(/\D/g,''))+'</span>':'');
   const imm=IMMUNE_ARTS.includes(a.code)?'<small>🛡 неприкосновенного можно задержать</small>':'';
@@ -192,11 +199,11 @@ function render(){
   if(view==='imm'||view==='memo')return;
   if(!v.trim()){
     view='home';results=[];
-    list.innerHTML=`<div class="chips"><span class="chip" data-k="imm">🛡 Неприкосновенные</span><span class="chip" data-k="memo">📖 Памятка</span><span class="chip" data-q="4+">⭐4–5 судимость</span><span class="chip" data-q="убийство">убийство</span><span class="chip" data-q="оружие">оружие</span><span class="chip" data-q="наркот">наркотики</span><span class="chip" data-q="задержание">задержание</span></div><div class="empty">Начните вводить номер статьи или слово из названия</div>`;
+    list.innerHTML=`<div class="chips"><span class="chip" data-k="imm">🛡 Неприкосновенные</span><span class="chip" data-k="memo">📖 Памятка</span><span class="chip" data-q="4+">⭐4–5 судимость</span><span class="chip" data-q="убийство">убийство</span><span class="chip" data-q="оружие">оружие</span><span class="chip" data-q="наркот">наркотики</span><span class="chip" data-q="задержание">задержание</span></div>${doc==='rules'?'<div class="sec">Документы</div><div class="chips">'+[['пго','ПГО'],['осн','Основные правила'],['лспд','LSPD'],['шериф','Sheriff'],['фиб','FIB'],['санг','SANG'],['ems','EMS'],['военное','Военное положение'],['ограбления','Ограбления'],['банки','Банки'],['бизнесы','Бизнесы'],['семьи','Семьи']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div>':'<div class="sec">Кодексы</div><div class="chips">'+[['пк','Процессуальный'],['тк','Трудовой'],['кэ','Этика'],['ук','УК'],['дк','ДК'],['ак','АК']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div><div class="empty">Начните вводить номер статьи или слово. Можно так: 1.18 ПГО</div>'}`;
     $('#cnt').textContent=`${ITEMS.length} статей`;
     return;
   }
-  const r=search(v);last=r;
+  const r=search(v);if(r.tab&&r.tab!==doc)setDoc(r.tab);last=r;
   results=r.items;if(sel>=results.length)sel=0;
   let h='';
   if(results.length)h+='<div class="sec">Статьи</div>'+results.map((a,i)=>row(a,i,r.words)).join('');
@@ -262,14 +269,15 @@ function clickRows(e){
 }
 function showRecord(){
   view='home';panel.classList.add('on');
-  const arr=ITEMS.filter(a=>a.record&&(doc==='all'||a.doc===doc));
+  const arr=ITEMS.filter(a=>a.record);
   results=arr;last={items:arr,snips:[],words:[]};sel=0;
   list.innerHTML='<div class="sec">Розыск 4–5, судимость</div>'+arr.map((a,i)=>row(a,i,[])).join('');
   $('#cnt').textContent=arr.length+' статей';
 }
 list.addEventListener('click',clickRows);
 q.addEventListener('input',()=>{view='home';sel=0;render();});
-$('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;doc=b.dataset.d;document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x===b));if(view==='home')render();});
+function setDoc(d){doc=d;document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x.dataset.d===d));}
+$('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setDoc(b.dataset.d);if(view==='home')render();});
 const _i=$('#immBtn'),_m=$('#memoBtn');if(_i)_i.onclick=openImm;if(_m)_m.onclick=openMemo;
 $('#hideBtn').onclick=()=>window.overlay&&window.overlay.hide&&window.overlay.hide();
 document.addEventListener('keydown',e=>{
@@ -306,4 +314,5 @@ if(window.overlay&&window.overlay.resize){
 <script src="anim.js"></script>
 <script src="updater-ui.js"></script>
 <script src="notice.js"></script>
+<script src="split.js"></script>
 </body></html>
