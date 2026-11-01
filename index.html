@@ -3,7 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Polix Helper</title>
 <style>
-:root{--text:#f4f1f5;--muted:#8d8593;--faint:#5d5663;--line:rgba(255,255,255,.08);--accent:#ff4d6d;--glass:linear-gradient(180deg,#221f27 0%,#16141a 100%)}
+:root{--acc-rgb:255,77,109;--text:#f4f1f5;--muted:#8d8593;--faint:#5d5663;--line:rgba(255,255,255,.08);--accent:#ff4d6d;--glass:linear-gradient(180deg,#221f27 0%,#16141a 100%)}
 *{box-sizing:border-box}
 html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Segoe UI",Inter,system-ui,sans-serif;overflow:hidden;user-select:none}
 #ui{animation:uiIn .22s ease-out both;width:100%;padding:36px 14px 14px;display:flex;flex-direction:column}
@@ -15,7 +15,7 @@ html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Sego
 #ui{position:relative}
 .bar{display:flex;align-items:center;gap:10px;background:var(--glass);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:12px 14px 12px 18px;box-shadow:0 20px 50px -18px rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.05);transition:border-color .25s,box-shadow .25s;animation:drop .45s cubic-bezier(.2,.8,.2,1) both;-webkit-app-region:drag}
 .bar>*{-webkit-app-region:no-drag}
-.bar:focus-within{border-color:rgba(255,77,109,.5);box-shadow:0 0 0 1px rgba(255,77,109,.3),0 20px 50px -18px rgba(0,0,0,.8)}
+.bar:focus-within{border-color:rgba(var(--acc-rgb),.5);box-shadow:0 0 0 1px rgba(var(--acc-rgb),.3),0 20px 50px -18px rgba(0,0,0,.8)}
 .logo{width:26px;height:26px;flex:none;-webkit-app-region:drag}
 #q{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:inherit;font-size:19px;user-select:text}
 #q::placeholder{color:#6f6876}
@@ -23,7 +23,7 @@ html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Sego
 .seg button{background:none;border:0;color:var(--muted);font:inherit;font-size:12px;padding:5px 12px;border-radius:999px;cursor:pointer;position:relative;z-index:1;transition:color .2s}
 .seg button.on{color:#fff;background:rgba(255,255,255,.14)}
 .ib{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);width:34px;height:34px;border-radius:10px;cursor:pointer;font-size:15px;transition:.2s}
-.ib:hover,.ib.on{color:#fff;border-color:rgba(255,77,109,.5);background:var(--accent-soft,rgba(255,77,109,.14))}
+.ib:hover,.ib.on{color:#fff;border-color:rgba(var(--acc-rgb),.5);background:var(--accent-soft,rgba(var(--acc-rgb),.14))}
 .panel{margin-top:8px;background:var(--glass);border:1px solid rgba(255,255,255,.1);border-radius:20px;overflow:hidden;display:none;flex-direction:column;min-height:0;box-shadow:0 20px 50px -18px rgba(0,0,0,.8);animation:drop .3s cubic-bezier(.2,.8,.2,1) both}
 .panel.on{display:flex}
 .scroll{overflow-y:auto;min-height:0;padding:6px;max-height:var(--maxh,520px)}
@@ -31,7 +31,7 @@ html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Sego
 .sec{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:10px 12px 4px}
 .row{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:10px 14px;margin:2px 0;border-radius:14px;border:1px solid transparent;cursor:pointer;transition:background .15s;animation:fade .25s both}
 .row:hover{background:rgba(255,255,255,.05)}
-.row.sel{background:linear-gradient(90deg,rgba(255,77,109,.16),rgba(255,77,109,.04));border-color:rgba(255,77,109,.35)}
+.row.sel{background:linear-gradient(90deg,rgba(var(--acc-rgb),.16),rgba(var(--acc-rgb),.04));border-color:rgba(var(--acc-rgb),.35)}
 .code{font-weight:800;font-size:16px;display:flex;flex-direction:column;gap:3px;font-variant-numeric:tabular-nums}
 .code i{font-style:normal;font-size:9.5px;color:#cfc8d3;font-weight:700;letter-spacing:.06em;background:rgba(255,255,255,.09);border-radius:5px;padding:1px 6px;align-self:flex-start}
 .name{font-size:13.5px;color:#e6e1e9;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -41,7 +41,7 @@ html,body{margin:0;background:transparent;color:var(--text);font:14px/1.45 "Sego
 .pill.w{background:rgba(255,196,60,.14);color:#ffd36b}
 .pill.w4{background:rgba(255,59,59,.16);color:#ff8a8a}
 .rec{color:#ff7b7b;font-weight:700;font-size:10.5px;letter-spacing:.05em}
-mark{background:rgba(255,77,109,.28);color:#fff;border-radius:3px;padding:0 1px}
+mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 1px}
 .snip{padding:9px 12px;border-radius:12px;cursor:pointer;animation:fade .25s both}
 .snip:hover{background:rgba(255,255,255,.07)}
 .snip small{color:var(--accent);font-size:11px;display:block;margin-bottom:2px}
@@ -49,7 +49,7 @@ mark{background:rgba(255,77,109,.28);color:#fff;border-radius:3px;padding:0 1px}
 .empty{padding:26px;text-align:center;color:var(--muted)}
 .chips{display:flex;gap:8px;flex-wrap:wrap;padding:12px}
 .chip{background:rgba(255,255,255,.07);border:1px solid var(--line);color:#ddd6e0;border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;transition:.2s}
-.chip:hover{border-color:rgba(255,77,109,.5);color:#fff}
+.chip:hover{border-color:rgba(var(--acc-rgb),.5);color:#fff}
 .det{padding:16px 18px 18px;overflow-y:auto;user-select:text;animation:fade .25s both}
 .det h2{margin:0 0 2px;font-size:20px}
 .det h2 span{color:var(--muted);font-weight:500;font-size:14px}
@@ -68,7 +68,7 @@ mark{background:rgba(255,77,109,.28);color:#fff;border-radius:3px;padding:0 1px}
 .imm{display:grid;gap:6px;margin-bottom:14px}
 .imm div{background:rgba(255,255,255,.06);border-radius:10px;padding:7px 12px;font-size:13px}
 .arts{display:flex;flex-wrap:wrap;gap:6px}
-.arts b{background:rgba(255,77,109,.14);border:1px solid rgba(255,77,109,.35);border-radius:8px;padding:3px 10px;cursor:pointer;font-size:13px}
+.arts b{background:rgba(var(--acc-rgb),.14);border:1px solid rgba(var(--acc-rgb),.35);border-radius:8px;padding:3px 10px;cursor:pointer;font-size:13px}
 .memo h3{margin:14px 0 4px;font-size:13px;color:var(--accent);letter-spacing:.04em}
 .memo p{margin:0 0 4px;font-size:13px;color:#d6d0da}
 .adm-top{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
@@ -270,4 +270,5 @@ if(window.overlay&&window.overlay.resize){
   new ResizeObserver(fit).observe(ui);fit();
 }render();q.focus();
 </script>
+<script src="extras.js"></script>
 </body></html>

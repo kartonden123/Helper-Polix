@@ -162,7 +162,27 @@ ipcMain.on('ov-resize', (_e, h) => {
   win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
 });
 ipcMain.on('ov-hide', () => hideWin());
-ipcMain.handle('auth-state', () => auth.get());
+// Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
+const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
+let me = { premium: false };
+try { me = JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')); } catch (e) {}
+async function refreshMe() {
+  const t = auth.token();
+  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false }; return; }
+  try {
+    const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
+    if (r.ok) { const d = await r.json(); me = { premium: !!d.premium }; try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {} }
+  } catch (e) { log('me error ' + e.message); }
+}
+ipcMain.handle('auth-state', async () => { await refreshMe(); const s = auth.get(); return { ...s, premium: !!(s.ok && (s.admin || me.premium)) }; });
+ipcMain.handle('admin-premium', async (_e, id, on) => {
+  const t = auth.token();
+  if (!t || !auth.get().admin) return { error: 'forbidden' };
+  try {
+    const r = await fetch(STATS_URL + '/admin/premium', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ id, on: !!on }) });
+    return await r.json();
+  } catch (e) { return { error: 'Нет связи с сервером' }; }
+});
 // статистика: сообщаем серверу, что человек пользуется хелпером
 async function ping() {
   const t = auth.token();
