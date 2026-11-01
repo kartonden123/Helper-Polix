@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.2.0',
+  version: '2.2.1',
+  ready: () => ipcRenderer.send('ov-ready'),
   autostartGet: () => ipcRenderer.invoke('autostart-get'),
   autostartSet: (on) => ipcRenderer.invoke('autostart-set', !!on),
   setBlur: (on) => ipcRenderer.send('ov-blur', !!on),

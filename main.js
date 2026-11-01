@@ -100,8 +100,12 @@ function loadContent() {
 function showWin() {
   if (!win) createWindow();
   win.setAlwaysOnTop(true, 'screen-saver');
+  // окно показываем невидимым: меню сначала сбрасывает состояние и подгоняет размер, потом плавно проявляется (без «прыжка» старого кадра)
+  const was = win.isVisible();
+  if (!was) win.setOpacity(0);
   win.show(); win.focus(); win.webContents.focus(); visible = true;
   win.webContents.send('ov-show');
+  if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
   updateTrayMenu();
 }
 function hideWin() {
@@ -184,6 +188,7 @@ ipcMain.on('ov-resize', (_e, h) => {
   win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
 });
 ipcMain.on('ov-hide', () => hideWin());
+ipcMain.on('ov-ready', () => { if (win && !win.isDestroyed()) win.setOpacity(1); });
 // ИИ-помощник: запрос идёт на сервер статистики, там проверяются Discord-аккаунт и дневной лимит
 ipcMain.handle('ai-ask', async (_e, question, context) => {
   const t = auth.token();

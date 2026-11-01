@@ -297,7 +297,7 @@ document.addEventListener('keydown',e=>{
   }
   if(e.key==='Backspace'&&view!=='home'&&document.activeElement!==q){goBack();}
 });
-if(window.overlay&&window.overlay.onShow)window.overlay.onShow(()=>{view='home';sel=0;render();const ui=$('#ui');ui.style.animation='none';ui.offsetHeight;ui.style.animation='';q.focus();q.select();});
+if(window.overlay&&window.overlay.onShow)window.overlay.onShow(()=>{view='home';sel=0;render();const ui=$('#ui');ui.style.animation='none';ui.offsetHeight;ui.style.animation='';q.focus();q.select();requestAnimationFrame(()=>requestAnimationFrame(()=>{if(window.overlay.ready)window.overlay.ready();}));});
 
 /* окно подгоняется под размер меню, поэтому пустого прозрачного места нет */
 document.documentElement.style.setProperty('--maxh',Math.round(screen.availHeight*0.55)+'px');
