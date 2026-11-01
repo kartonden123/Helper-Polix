@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '1.7.1',
+  version: '1.8.0',
   ignore: (v) => ipcRenderer.send('ov-ignore', !!v),
   hide: () => ipcRenderer.send('ov-hide'),
   resize: (h) => ipcRenderer.send('ov-resize', h),
@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('overlay', {
   onUpdate: (cb) => ipcRenderer.on('update-state', (_e, s) => cb(s)),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateAction: (a) => ipcRenderer.send('update-action', a),
+  aiAsk: (q, c) => ipcRenderer.invoke('ai-ask', q, c),
+  aiLeft: () => ipcRenderer.invoke('ai-left'),
   adminUsers: () => ipcRenderer.invoke('admin-users'),
   adminPremium: (id, on) => ipcRenderer.invoke('admin-premium', id, on)
 });

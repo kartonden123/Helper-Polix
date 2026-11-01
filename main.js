@@ -175,6 +175,21 @@ ipcMain.on('ov-resize', (_e, h) => {
   win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
 });
 ipcMain.on('ov-hide', () => hideWin());
+// ИИ-помощник: запрос идёт на сервер статистики, там проверяются Discord-аккаунт и дневной лимит
+ipcMain.handle('ai-ask', async (_e, question, context) => {
+  const t = auth.token();
+  if (!t || !auth.get().ok) return { error: 'auth', message: 'Войдите через Discord, чтобы пользоваться ИИ.' };
+  try {
+    const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 45000);
+    const r = await fetch(STATS_URL + '/ai', { method: 'POST', signal: ctl.signal, headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }) });
+    clearTimeout(to);
+    return await r.json();
+  } catch (e) { log('ai error ' + e.message); return { error: 'net', message: 'Нет связи с сервером ИИ. Вопрос не списан.' }; }
+});
+ipcMain.handle('ai-left', async () => {
+  const t = auth.token(); if (!t || !auth.get().ok) return null;
+  try { const r = await fetch(STATS_URL + '/ai/left', { headers: { Authorization: 'Bearer ' + t } }); return await r.json(); } catch (e) { return null; }
+});
 ipcMain.handle('update-state', () => lastUpdate);
 ipcMain.on('update-action', (_e, a) => {
   const u = lastUpdate || {};
