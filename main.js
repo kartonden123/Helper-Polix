@@ -19,6 +19,12 @@ let visible = true;
 let quitting = false;
 let updateState = 'Обновления: не проверялись';
 let lastUpdate = null;
+let declinedVersion = null;
+function startDownload() {
+  const v = (lastUpdate && lastUpdate.version) || '';
+  pushUpdate({ type: 'downloading', version: v, percent: 0 });
+  autoUpdater.downloadUpdate().catch(e => { log('download error ' + e.message); pushUpdate({ type: 'available', version: v }); });
+}
 function pushUpdate(s) { lastUpdate = s; if (win && !win.isDestroyed()) win.webContents.send('update-state', s); }
 
 // один экземпляр: второй запуск просто показывает окно
@@ -120,10 +126,16 @@ function createTray() {
 // ---------- автообновление ----------
 function setupUpdater() {
   if (!app.isPackaged) { updateState = 'Обновления: режим разработки'; return; }
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;   // сначала спрашиваем пользователя
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => { updateState = 'Проверка обновлений…'; updateTrayMenu(); });
-  autoUpdater.on('update-available', (i) => { updateState = `Скачивается версия ${i.version}…`; pushUpdate({ type: 'downloading', version: i.version, percent: 0 }); updateTrayMenu(); });
+  autoUpdater.on('update-available', (i) => {
+    updateState = `Доступна версия ${i.version}`;
+    updateTrayMenu();
+    if (declinedVersion === i.version) { pushUpdate({ type: 'none', version: i.version, later: true, avail: true }); return; }
+    pushUpdate({ type: 'available', version: i.version });
+    showWin();
+  });
   autoUpdater.on('update-not-available', () => { updateState = 'Установлена последняя версия'; updateTrayMenu(); });
   autoUpdater.on('download-progress', (p) => { updateState = `Скачивание: ${Math.round(p.percent)}%`; pushUpdate({ type: 'downloading', version: (lastUpdate && lastUpdate.version) || '', percent: p.percent }); updateTrayMenu(); });
   autoUpdater.on('update-downloaded', (i) => {
@@ -147,7 +159,8 @@ function updateTrayMenu() {
     { label: visible ? 'Скрыть' : 'Показать', click: toggle },
     { label: `Горячая клавиша: Alt+Q`, enabled: false },
     { label: updateState, enabled: false },
-    ...(lastUpdate && (lastUpdate.type === 'ready' || lastUpdate.later) ? [{ label: 'Установить обновление ' + lastUpdate.version, click: () => { quitting = true; autoUpdater.quitAndInstall(); } }] : []),
+    ...(lastUpdate && lastUpdate.later && lastUpdate.avail ? [{ label: 'Скачать обновление ' + lastUpdate.version, click: () => startDownload() }] : []),
+    ...(lastUpdate && lastUpdate.later && !lastUpdate.avail ? [{ label: 'Установить обновление ' + lastUpdate.version, click: () => { quitting = true; autoUpdater.quitAndInstall(); } }] : []),
     { label: 'Проверить обновления', click: checkUpdates },
     { type: 'separator' },
     { label: 'Выйти из Discord', click: () => { auth.logout(); loadContent(); showWin(); } },
@@ -164,8 +177,14 @@ ipcMain.on('ov-resize', (_e, h) => {
 ipcMain.on('ov-hide', () => hideWin());
 ipcMain.handle('update-state', () => lastUpdate);
 ipcMain.on('update-action', (_e, a) => {
-  if (a === 'install' && lastUpdate && lastUpdate.type === 'ready') { quitting = true; autoUpdater.quitAndInstall(); }
-  else if (a === 'later') { pushUpdate(lastUpdate && lastUpdate.type === 'ready' ? { type: 'none', version: lastUpdate.version, later: true } : null); updateTrayMenu(); }
+  const u = lastUpdate || {};
+  if (a === 'download' && (u.type === 'available' || u.avail)) startDownload();
+  else if (a === 'install' && u.type === 'ready') { quitting = true; autoUpdater.quitAndInstall(); }
+  else if (a === 'later') {
+    if (u.type === 'available') { declinedVersion = u.version; pushUpdate({ type: 'none', version: u.version, later: true, avail: true }); }
+    else if (u.type === 'ready') pushUpdate({ type: 'none', version: u.version, later: true });
+    updateTrayMenu();
+  }
 });
 ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {

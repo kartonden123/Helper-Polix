@@ -38,7 +38,13 @@
       return;
     }
     const wasOn = el.classList.contains('on');
-    if (s.type === 'downloading') {
+    if (s.type === 'available') {
+      el.dataset.t = 'a';
+      el.innerHTML = `<span class="uic">✨</span><div class="utx"><b>Вышла новая версия ${esc(s.version || '')}</b><small>Скачать обновление? Это займёт меньше минуты.</small></div><button class="ubtn later" id="updLater">Позже</button><button class="ubtn go" id="updGo">Скачать</button>`;
+      el.classList.add('shine');
+      el.querySelector('#updGo').onclick = () => { window.overlay.updateAction('download'); };
+      el.querySelector('#updLater').onclick = () => { window.overlay.updateAction('later'); show({ type: 'none' }); };
+    } else    if (s.type === 'downloading') {
       const p = Math.max(0, Math.min(100, Math.round(s.percent || 0)));
       if (!el.querySelector('.bar2') || el.dataset.t !== 'd') {
         el.innerHTML = `<span class="uic">⬇</span><div class="utx"><b>Скачиваю обновление ${esc(s.version || '')}</b><small id="updPct">${p}%</small></div><div class="bar2" id="updBar"></div>`;
