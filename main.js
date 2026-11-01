@@ -5,6 +5,7 @@ const fs = require('fs');
 const auth = require('./auth');
 
 const APP_NAME = 'Polix Helper';
+const STATS_URL = 'https://polix-helper-stats.kartonden123.workers.dev';   // сервер статистики (Cloudflare Worker)
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
 const WIDTH = 760;
 const HEIGHT_RATIO = 0.75;
@@ -158,10 +159,27 @@ function updateTrayMenu() {
 ipcMain.on('ov-ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(v, { forward: true }); });
 ipcMain.on('ov-hide', () => hideWin());
 ipcMain.handle('auth-state', () => auth.get());
+// статистика: сообщаем серверу, что человек пользуется хелпером
+async function ping() {
+  const t = auth.token();
+  if (!t || !auth.get().ok || false) return;
+  try {
+    await fetch(STATS_URL + '/ping', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ version: app.getVersion() }) });
+  } catch (e) { log('ping error ' + e.message); }
+}
+// админ-панель: сервер сам проверяет, что это ваш Discord ID
+ipcMain.handle('admin-users', async () => {
+  const t = auth.token();
+  if (!t || !auth.get().admin) return { error: 'forbidden' };
+  try {
+    const r = await fetch(STATS_URL + '/admin/users', { headers: { Authorization: 'Bearer ' + t } });
+    return await r.json();
+  } catch (e) { return { error: 'Нет связи с сервером статистики' }; }
+});
 ipcMain.handle('auth-login', async () => {
   const s = await auth.login();
   log('auth login: ' + s.ok + ' ' + (s.reason || ''));
-  if (s.ok) loadContent();
+  if (s.ok) { loadContent(); ping(); }
   showWin();
   return s;
 });
@@ -169,6 +187,7 @@ async function recheckAuth() {
   const was = auth.get().ok;
   const s = await auth.recheck();
   log('auth recheck: ' + s.ok + ' ' + (s.reason || ''));
+  if (s.ok) ping();
   if (was !== s.ok) { loadContent(); if (!s.ok) showWin(); }
 }
 
@@ -176,6 +195,8 @@ app.whenReady().then(async () => {
   await auth.recheck();
   createWindow();
   setInterval(recheckAuth, 3 * 60 * 60 * 1000);
+  ping();
+  setInterval(ping, 20 * 60 * 1000);
   createTray();
   setupUpdater();
   const keys = [TOGGLE_KEY, 'Control+Alt+Q'];

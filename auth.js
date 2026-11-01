@@ -17,6 +17,8 @@ const API = 'https://discord.com/api/v10';
 const FILE = () => path.join(app.getPath('userData'), 'auth.json');
 let state = { ok: false, user: null, reason: '' };
 let server = null;
+let accessToken = null;
+const ADMIN_ID = '1041301544471113788';
 
 const b64 = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const enc = (s) => (safeStorage.isEncryptionAvailable() ? 'e:' + safeStorage.encryptString(s).toString('base64') : 'p:' + s);
@@ -61,6 +63,7 @@ async function recheck() {
   try {
     const t = await tokenRequest({ grant_type: 'refresh_token', refresh_token: dec(d.refresh) });
     const v = await verify(t.access_token);
+    accessToken = t.access_token;
     save({ refresh: enc(t.refresh_token), user: publicUser(v.user), ok: v.ok, checkedAt: Date.now() });
     state = { ok: v.ok, user: publicUser(v.user), reason: v.reason };
   } catch (e) {
@@ -97,6 +100,7 @@ function login() {
       try {
         const t = await tokenRequest({ grant_type: 'authorization_code', code: u.searchParams.get('code'), redirect_uri: REDIRECT, code_verifier: verifier });
         const v = await verify(t.access_token);
+        accessToken = t.access_token;
         save({ refresh: enc(t.refresh_token), user: publicUser(v.user), ok: v.ok, checkedAt: Date.now() });
         page(v.ok ? 'Готово! Вернитесь в Polix Helper.' : esc(v.reason));
         finish({ ok: v.ok, user: publicUser(v.user), reason: v.reason });
@@ -117,4 +121,4 @@ function login() {
 const esc = (s) => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 function logout() { save({ refresh: '', ok: false }); state = { ok: false, user: null, reason: '' }; return state; }
-module.exports = { login, recheck, logout, get: () => state };
+module.exports = { login, recheck, logout, get: () => ({ ...state, admin: !!(state.ok && state.user && state.user.id === ADMIN_ID) }), token: () => accessToken };

@@ -71,6 +71,15 @@ mark{background:rgba(255,77,109,.28);color:#fff;border-radius:3px;padding:0 1px}
 .arts b{background:rgba(255,77,109,.14);border:1px solid rgba(255,77,109,.35);border-radius:8px;padding:3px 10px;cursor:pointer;font-size:13px}
 .memo h3{margin:14px 0 4px;font-size:13px;color:var(--accent);letter-spacing:.04em}
 .memo p{margin:0 0 4px;font-size:13px;color:#d6d0da}
+.adm-top{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.adm-top div{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.adm-top small{display:block;color:var(--muted);font-size:11px}
+.adm-top b{font-size:22px}
+.adm-row{display:grid;grid-template-columns:12px 1fr auto auto;gap:12px;align-items:center;padding:8px 10px;border-radius:10px}
+.adm-row:nth-child(odd){background:rgba(255,255,255,.04)}
+.dot{width:9px;height:9px;border-radius:50%;background:#555}
+.dot.on{background:#3ddc84;box-shadow:0 0 8px #3ddc84}
+.adm-row small{color:var(--muted);font-size:11.5px;white-space:nowrap}
 .foot{padding:8px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--faint);display:flex;gap:14px}
 @keyframes drop{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -86,7 +95,7 @@ mark{background:rgba(255,77,109,.28);color:#fff;border-radius:3px;padding:0 1px}
     <svg class="logo" viewBox="0 0 32 32"><circle cx="16" cy="16" r="14" fill="none" stroke="#ff4d6d" stroke-width="4" stroke-dasharray="11 11"/><circle cx="16" cy="16" r="14" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="11 11" stroke-dashoffset="11"/><circle cx="16" cy="16" r="6" fill="#0b0a0c"/></svg>
     <input id="q" placeholder="Статья или номер" autocomplete="off" spellcheck="false">
     <div class="seg" id="seg"><button data-d="all" class="on">Все</button><button data-d="УК">УК</button><button data-d="ДК">ДК</button></div>
-    <button class="ib" id="immBtn" title="Неприкосновенные лица">🛡</button>
+    <button class="ib" id="admBtn" title="Админ-панель" style="display:none">👑</button> title="Неприкосновенные лица">🛡</button>
     <button class="ib" id="memoBtn" title="Памятка">📖</button>
     <button class="ib" id="hideBtn" title="Скрыть (Alt+Q)">✕</button>
   </div>
@@ -195,6 +204,19 @@ function openMemo(){
   list.innerHTML=backBtn()+`<div class="det memo">${h}</div>`;
   $('#bk').onclick=goBack;$('#cnt').textContent='';
 }
+function ago(ts){const s=Math.max(0,(Date.now()-ts)/1000|0);if(s<90)return 'сейчас';if(s<3600)return (s/60|0)+' мин назад';if(s<86400)return (s/3600|0)+' ч назад';return (s/86400|0)+' дн назад';}
+async function openAdmin(){
+  view='memo';panel.classList.add('on');
+  list.innerHTML=backBtn()+'<div class="det"><h2>👑 Кто пользуется</h2><p class="t">Загрузка…</p></div>';
+  $('#bk').onclick=goBack;$('#cnt').textContent='';
+  const d=await window.overlay.adminUsers();
+  if(!d||d.error){list.innerHTML=backBtn()+`<div class="det"><h2>👑 Кто пользуется</h2><p class="t">${esc(d&&d.error||'Ошибка')}</p></div>`;$('#bk').onclick=goBack;return;}
+  list.innerHTML=backBtn()+`<div class="det"><h2>👑 Кто пользуется</h2>
+  <div class="adm-top"><div><small>Всего</small><b>${d.total}</b></div><div><small>В сети</small><b style="color:#3ddc84">${d.online}</b></div><div><small>За 24 часа</small><b>${d.day}</b></div><div><small>За 7 дней</small><b>${d.week}</b></div></div>
+  ${d.users.map(u=>`<div class="adm-row"><span class="dot${u.online?' on':''}"></span><span>${esc(u.name)}<br><small>${esc(u.id)}</small></span><small>v${esc(u.version||'?')}</small><small>${ago(u.last_seen)}</small></div>`).join('')||'<p class="t">Пока никого.</p>'}</div>`;
+  $('#bk').onclick=goBack;
+}
+if(window.overlay&&window.overlay.authState)window.overlay.authState().then(s=>{if(s&&s.admin){const b=$('#admBtn');b.style.display='';b.onclick=openAdmin;}});
 let prev=null;
 function goBack(){
   if(view==='art'&&prev==='imm'){prev=null;openImm();return;}
