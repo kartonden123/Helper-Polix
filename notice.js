@@ -8,6 +8,7 @@
   .toast i{font-style:normal;font-size:18px}
   .toast.out{animation:toastOut .3s both}
   .set-sec{margin:14px 0 4px;font-weight:700;font-size:13px;color:var(--accent)}.lockrow{color:#a99fb0;font-size:12px}
+  .neon .bar,.neon .panel{border-color:rgba(var(--acc-rgb),.75)!important;box-shadow:0 0 0 1px rgba(var(--acc-rgb),.35),0 0 22px rgba(var(--acc-rgb),.45),0 0 60px -10px rgba(var(--acc-rgb),.5)!important}
   .about{display:flex;align-items:center;gap:12px;margin:2px 0 12px}.about img{width:42px;height:42px;border-radius:10px}
   .about small{display:block;color:#a99fb0;font-size:12px;margin-top:2px}
   @keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}

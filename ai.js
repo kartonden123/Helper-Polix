@@ -48,6 +48,7 @@
   /* ---- окно ИИ ---- */
   let busy = false;
   function openAI(prefill) {
+    if (!window.PH.premium) return window.PHX.gate('ИИ-помощник', 'ИИ знает кодексы, законы и правила Majestic. Доступен с Premium: 5 вопросов в день, с Ультра Премиум 10.');
     view = 'memo'; panel.classList.add('on');
     list.innerHTML = backBtn() + `<div class="det"><h2>🤖 Спросить ИИ</h2><p class="t">Задайте вопрос по кодексам, законам и уставам. ИИ ответит на основе базы хелпера.</p>
       <textarea class="ai-box" id="aiQ" maxlength="500" placeholder="Например: «можно ли задержать неприкосновенного человека за убийство?»">${esc(prefill || '')}</textarea>
@@ -70,6 +71,8 @@
       $('#aiCp').onclick = () => copy(r.answer, $('#aiCp'));
       out.querySelectorAll('.ai-src b').forEach((b) => (b.onclick = () => { const a = ITEMS.find((x) => x.code === b.dataset.c); if (a) openArt(a); }));
       if ($('#aiLeft')) $('#aiLeft').textContent = r.limit > 1000 ? 'Без ограничений' : `Осталось сегодня: ${r.remaining} из ${r.limit}`;
+    } else if (r && r.error === 'premium') {
+      out.innerHTML = '<div class="ai-ans err">ИИ доступен только с Premium (5 вопросов в день) и Ультра Премиум (10).</div>';
     } else if (r && r.error === 'limit') {
       out.innerHTML = `<div class="ai-ans err">Лимит на сегодня исчерпан (${r.limit} из ${r.limit}). Завтра вопросы обновятся.</div>`;
       if ($('#aiLeft')) $('#aiLeft').textContent = 'Осталось сегодня: 0';

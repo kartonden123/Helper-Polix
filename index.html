@@ -98,7 +98,7 @@ mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 
   <div class="tab" id="tabhint">Alt+Q — показать / скрыть · <b>Esc</b> — назад</div>
   <div class="bar" id="bar">
     <img class="logo" src="logo.png" alt="">
-    <input id="q" placeholder="Статья, слово или «1.18 ПГО»" autocomplete="off" spellcheck="false">
+    <input id="q" placeholder="" autocomplete="off" spellcheck="false">
     <div class="seg" id="seg"><button data-d="rules">Правила</button><button data-d="law" class="on">Законы</button></div>
     <button class="ib" id="admBtn" title="Админ-панель" style="display:none">👑</button>
     <button class="ib" id="immBtn" title="Неприкосновенные лица">🛡</button>
@@ -199,7 +199,7 @@ function render(){
   if(view==='imm'||view==='memo')return;
   if(!v.trim()){
     view='home';results=[];
-    list.innerHTML=`<div class="chips"><span class="chip" data-k="imm">🛡 Неприкосновенные</span><span class="chip" data-k="memo">📖 Памятка</span><span class="chip" data-q="4+">⭐4–5 судимость</span><span class="chip" data-q="убийство">убийство</span><span class="chip" data-q="оружие">оружие</span><span class="chip" data-q="наркот">наркотики</span><span class="chip" data-q="задержание">задержание</span></div>${doc==='rules'?'<div class="sec">Документы</div><div class="chips">'+[['пго','ПГО'],['осн','Основные правила'],['лспд','LSPD'],['шериф','Sheriff'],['фиб','FIB'],['санг','SANG'],['ems','EMS'],['военное','Военное положение'],['ограбления','Ограбления'],['банки','Банки'],['бизнесы','Бизнесы'],['семьи','Семьи']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div>':'<div class="sec">Кодексы</div><div class="chips">'+[['пк','Процессуальный'],['тк','Трудовой'],['кэ','Этика'],['ук','УК'],['дк','ДК'],['ак','АК']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div><div class="empty">Начните вводить номер статьи или слово. Можно так: 1.18 ПГО</div>'}`;
+    list.innerHTML=`<div class="chips"><span class="chip" data-k="imm">🛡 Неприкосновенные</span><span class="chip" data-k="memo">📖 Памятка</span><span class="chip" data-q="4+">⭐4–5 судимость</span><span class="chip" data-q="убийство">убийство</span><span class="chip" data-q="оружие">оружие</span><span class="chip" data-q="наркот">наркотики</span><span class="chip" data-q="задержание">задержание</span></div>${doc==='rules'?'<div class="sec">Документы</div><div class="chips">'+[['пго','ПГО'],['осн','Основные правила'],['лспд','LSPD'],['шериф','Sheriff'],['фиб','FIB'],['санг','SANG'],['ems','EMS'],['военное','Военное положение'],['ограбления','Ограбления'],['банки','Банки'],['бизнесы','Бизнесы'],['семьи','Семьи']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div>':'<div class="sec">Кодексы</div><div class="chips">'+[['пк','Процессуальный'],['тк','Трудовой'],['кэ','Этика'],['ук','УК'],['дк','ДК'],['ак','АК']].map(x=>`<span class="chip" data-q="${x[0]}">${x[1]}</span>`).join('')+'</div><div class="empty"></div>'}`;
     $('#cnt').textContent=`${ITEMS.length} статей`;
     return;
   }
@@ -277,7 +277,7 @@ function showRecord(){
 list.addEventListener('click',clickRows);
 q.addEventListener('input',()=>{view='home';sel=0;render();});
 function setDoc(d){doc=d;document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on',x.dataset.d===d));}
-$('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setDoc(b.dataset.d);if(view==='home')render();});
+$('#seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;setDoc(b.dataset.d);view='home';prev=null;sel=0;render();q.focus();});
 const _i=$('#immBtn'),_m=$('#memoBtn');if(_i)_i.onclick=openImm;if(_m)_m.onclick=openMemo;
 $('#hideBtn').onclick=()=>window.overlay&&window.overlay.hide&&window.overlay.hide();
 document.addEventListener('keydown',e=>{
