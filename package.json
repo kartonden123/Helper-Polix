@@ -1,6 +1,6 @@
 {
   "name": "majestic-catalog-overlay",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Polix Helper by KATO",
   "main": "main.js",
   "author": "KATO",
@@ -33,6 +33,7 @@
       "releaseType": "release"
     },
     "win": {
+      "icon": "icon.ico",
       "target": [
         "nsis"
       ]
