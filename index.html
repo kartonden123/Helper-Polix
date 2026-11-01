@@ -316,6 +316,15 @@ body.ov-mode thead th:nth-child(7),body.ov-mode tbody td:nth-child(7){display:no
 body.ov-mode .name{width:44%}
 body.ov-mode td.r.num{white-space:nowrap}
 body.ov-mode .stars{white-space:nowrap}
+
+/* v9: читаемость — панели почти непрозрачные, фон не просвечивает */
+body.ov-mode{--g1:rgba(14,12,18,.94);--g2:rgba(20,17,26,.94)}
+body.ov-mode .panel{background:rgba(14,12,18,.94)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.ov-mode .bar{background:rgba(14,12,18,.95)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+body.ov-mode thead th{background:rgba(14,12,18,1)!important;backdrop-filter:none!important}
+body.ov-mode tbody td{color:#f5f2f7!important;text-shadow:none}
+body.ov-mode tbody tr:hover{background:rgba(255,77,109,.14)!important}
+body.ov-mode .seg2{background:rgba(255,255,255,.06)!important}
 </style></head>
 <body>
 <input id="aq" hidden><input id="sq" hidden>

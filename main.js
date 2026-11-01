@@ -1,9 +1,10 @@
-const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
 const APP_NAME = 'Памятка семьи Polix Creator - KATO';
-const OPACITY = 0.92;
+const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
 const WIDTH = 640;
 const HEIGHT_RATIO = 0.9;
 const SIDE = 'right';          // 'right' или 'top'
@@ -14,6 +15,7 @@ let win = null;
 let tray = null;
 let visible = true;
 let quitting = false;
+let updateState = 'Обновления: не проверялись';
 
 // один экземпляр: второй запуск просто показывает окно
 if (!app.requestSingleInstanceLock()) { app.quit(); }
@@ -103,11 +105,41 @@ function createTray() {
   updateTrayMenu();
 }
 
+
+// ---------- автообновление ----------
+function setupUpdater() {
+  if (!app.isPackaged) { updateState = 'Обновления: режим разработки'; return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => { updateState = 'Проверка обновлений…'; updateTrayMenu(); });
+  autoUpdater.on('update-available', (i) => { updateState = `Скачивается версия ${i.version}…`; updateTrayMenu(); });
+  autoUpdater.on('update-not-available', () => { updateState = 'Установлена последняя версия'; updateTrayMenu(); });
+  autoUpdater.on('download-progress', (p) => { updateState = `Скачивание: ${Math.round(p.percent)}%`; updateTrayMenu(); });
+  autoUpdater.on('update-downloaded', (i) => {
+    updateState = `Версия ${i.version} готова`;
+    updateTrayMenu();
+    dialog.showMessageBox({
+      type: 'info', buttons: ['Перезапустить сейчас', 'Позже'], defaultId: 0,
+      title: APP_NAME, message: `Доступна версия ${i.version}`,
+      detail: 'Перезапустить программу, чтобы установить обновление?'
+    }).then(r => { if (r.response === 0) { quitting = true; autoUpdater.quitAndInstall(); } });
+  });
+  autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
+  checkUpdates();
+  setInterval(checkUpdates, 3 * 60 * 60 * 1000);
+}
+function checkUpdates() {
+  if (!app.isPackaged) return;
+  autoUpdater.checkForUpdates().catch(e => log('check error ' + e.message));
+}
+
 function updateTrayMenu() {
   if (!tray) return;
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: visible ? 'Скрыть' : 'Показать', click: toggle },
     { label: `Горячая клавиша: Alt+Q`, enabled: false },
+    { label: updateState, enabled: false },
+    { label: 'Проверить обновления', click: checkUpdates },
     { type: 'separator' },
     { label: 'Выйти полностью', click: quitApp }
   ]));
@@ -116,6 +148,7 @@ function updateTrayMenu() {
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  setupUpdater();
   const ok = globalShortcut.register(TOGGLE_KEY, toggle);
   log(`shortcut ${TOGGLE_KEY}: ${ok}`);
   app.on('activate', showWin);
