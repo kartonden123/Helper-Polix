@@ -30,11 +30,36 @@ function pushUpdate(s) { lastUpdate = s; if (win && !win.isDestroyed()) win.webC
 
 app.setAppUserModelId('dev.majestic.catalog.overlay');
 // уведомление: системное (Windows) и всплывающая плашка в самом меню
-function notify(title, body, kind) {
-  try { if (Notification.isSupported()) { const n = new Notification({ title, body, icon: path.join(__dirname, 'logo.png'), silent: false }); n.on('click', () => showWin()); n.show(); } } catch (e) { log('notify error ' + e.message); }
-  if (win && !win.isDestroyed()) win.webContents.send('notice', { title, body, kind: kind || 'info' });
+// уведомление: своё маленькое окно поверх игры (системные уведомления Windows глушатся в полноэкранных играх и режиме «Не беспокоить»)
+const toasts = [];
+const TOAST_ICON = { update: '⬇', role: '🛡', premium: '⭐', ban: '⛔', announce: '📢', chat: '💬', info: '🔔' };
+function showToast(title, body, kind) {
+  try {
+    const wa = screen.getPrimaryDisplay().workArea;
+    const W = 360, H = 92, gap = 10;
+    const y = wa.y + wa.height - (H + gap) * (toasts.length + 1) - 6;
+    const tw = new BrowserWindow({ width: W, height: H, x: wa.x + wa.width - W - 14, y, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, resizable: false, hasShadow: false, webPreferences: { contextIsolation: true } });
+    const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const html = `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden;font:13px "Segoe UI",system-ui,sans-serif;color:#fff;user-select:none;cursor:pointer}
+.c{margin:4px;height:${H - 8}px;box-sizing:border-box;display:flex;gap:12px;align-items:center;padding:0 16px;border-radius:16px;background:linear-gradient(180deg,#221f27,#16141a);border:1px solid #ff4d6d;box-shadow:0 8px 28px rgba(0,0,0,.6);animation:in .35s cubic-bezier(.2,.9,.3,1.1) both}
+i{font-style:normal;font-size:26px}b{display:block;font-size:14px;margin-bottom:2px}span{color:#cfc8d3;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@keyframes in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}</style>
+<div class="c" onclick="document.title='click'"><i>${TOAST_ICON[kind] || TOAST_ICON.info}</i><div><b>${esc(title)}</b><span>${esc(body)}</span></div></div>`;
+    tw.setAlwaysOnTop(true, 'screen-saver');
+    tw.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    tw.once('ready-to-show', () => tw.showInactive());
+    tw.webContents.on('page-title-updated', (_e, t) => { if (t === 'click') { showWin(); if (!tw.isDestroyed()) tw.close(); } });
+    toasts.push(tw);
+    const done = () => { const i = toasts.indexOf(tw); if (i >= 0) toasts.splice(i, 1); };
+    tw.on('closed', done);
+    setTimeout(() => { if (!tw.isDestroyed()) tw.close(); }, 8000);
+  } catch (e) { log('toast error ' + e.message); }
 }
-let notifiedUpdate = null;
+function notify(title, body, kind) {
+  showToast(title, body, kind);
+  if (win && !win.isDestroyed()) win.webContents.send('notice', { title, body, kind: kind || 'info', silent: true });
+}
+ipcMain.handle('notify-test', () => { notify('Проверка уведомлений', 'Если вы видите это окно, уведомления работают.', 'info'); return true; });let notifiedUpdate = null;
 // один экземпляр: второй запуск просто показывает окно
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 app.on('second-instance', () => showWin());
@@ -160,6 +185,20 @@ function setupUpdater() {
   autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
   checkUpdates();
   setInterval(checkUpdates, 10 * 60 * 1000);
+  setInterval(watchRelease, 45 * 1000);
+}
+// как только GitHub отдаёт новый latest.yml (сборка готова), сразу запрашиваем обновление
+let remoteSeen = null;
+const vnum = (v) => String(v).split('.').map((x) => parseInt(x, 10) || 0);
+const newer = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+async function watchRelease() {
+  if (!app.isPackaged) return;
+  try {
+    const r = await fetch('https://github.com/kartonden123/Helper-Polix/releases/latest/download/latest.yml', { headers: { 'Cache-Control': 'no-cache' } });
+    if (!r.ok) return;
+    const m = /^version:\s*([\d.]+)/m.exec(await r.text());
+    if (m && m[1] !== remoteSeen) { remoteSeen = m[1]; if (newer(m[1], app.getVersion())) checkUpdates(); }
+  } catch (e) {}
 }
 function checkUpdates() {
   if (!app.isPackaged) return;
@@ -260,7 +299,7 @@ ipcMain.on('ov-position', (_e, side) => {
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
 let me = { roles: [], premium: false, tier: '', role: '', banned: false, announce: null };
 try { me = { ...me, ...JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')) }; } catch (e) {}
-let meKnown = fs.existsSync(PREMIUM_FILE());
+let meKnown = (() => { try { const j = JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')); return Array.isArray(j.roles) && j.tier !== undefined; } catch (e) { return false; } })();
 const RN_RU = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор' };
 function diffMe(a, b, isOwner) {
   if (isOwner) { if (b.announce && (!a.announce || a.announce.id !== b.announce.id)) { /* свои объявления не показываем */ } return; }
@@ -280,6 +319,7 @@ function diffMe(a, b, isOwner) {
   if (a.banned && !b.banned) notify('Доступ восстановлен', 'Блокировка снята.', 'ban');
   if (b.announce && b.announce.text && (!a.announce || a.announce.id !== b.announce.id)) notify('Объявление', b.announce.text, 'announce');
 }
+let lastPushAt = 0;
 async function refreshMe() {
   const t = auth.token();
   if (!t || !auth.get().ok) { if (!auth.get().ok) me = { roles: [], premium: false, tier: '', role: '', banned: false, announce: null }; return; }
@@ -287,6 +327,7 @@ async function refreshMe() {
     const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
     if (r.ok) {
       const d = await r.json();
+      if (Date.now() - lastPushAt < 90000) return;   // свежие данные из мгновенного канала важнее задержанного ответа KV
       const nm = { roles: d.roles || [], premium: !!d.premium, tier: d.tier || (d.premium ? 'premium' : ''), role: d.role || '', banned: !!d.banned, announce: d.announce || null };
       if (meKnown) diffMe(me, nm, !!d.admin);
       meKnown = true; me = nm;
@@ -294,8 +335,51 @@ async function refreshMe() {
     }
   } catch (e) { log('me error ' + e.message); }
 }
-ipcMain.handle('auth-state', async () => {
-  await refreshMe();
+function applyPatch(p) {
+  lastPushAt = Date.now();
+  const nm = { ...me, ...p };
+  if (p.announce === undefined) nm.announce = me.announce;
+  const owner = !!auth.get().admin;
+  if (meKnown) diffMe(me, nm, owner);
+  me = nm; meKnown = true;
+  try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {}
+  if (win && !win.isDestroyed()) win.webContents.send('me-changed');
+}
+// ---------- мгновенный канал: чат и уведомления (WebSocket) ----------
+let ws = null, wsTimer = null, wsDelay = 3000, wsPing = null, chatHist = [];
+function wsSend(o) { try { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(o)); return true; } } catch (e) {} return false; }
+function connectWs() {
+  clearTimeout(wsTimer);
+  const t = auth.token();
+  if (!t || !auth.get().ok || (ws && ws.readyState <= 1)) return;
+  let WS; try { WS = require('ws'); } catch (e) { log('ws missing'); return; }
+  try {
+    ws = new WS(STATS_URL.replace(/^http/, 'ws') + '/ws', { headers: { Authorization: 'Bearer ' + t } });
+  } catch (e) { wsTimer = setTimeout(connectWs, wsDelay); return; }
+  ws.on('open', () => { wsDelay = 3000; clearInterval(wsPing); wsPing = setInterval(() => wsSend({ t: 'ping' }), 40000); log('ws open'); });
+  ws.on('message', (d) => {
+    let m; try { m = JSON.parse(String(d)); } catch (e) { return; }
+    const myId = auth.get().user && auth.get().user.id;
+    if (m.t === 'hist') { chatHist = m.m || []; if (win && !win.isDestroyed()) win.webContents.send('chat', { t: 'hist', m: chatHist }); }
+    else if (m.t === 'chat') {
+      chatHist.push(m.m); if (chatHist.length > 100) chatHist.shift();
+      if (win && !win.isDestroyed()) win.webContents.send('chat', m);
+      if (m.m.uid !== myId && !(win && win.isVisible())) showToast(m.m.name, m.m.text, 'chat');
+    }
+    else if (m.t === 'del') { chatHist = chatHist.filter((x) => x.id !== m.id); if (win && !win.isDestroyed()) win.webContents.send('chat', m); }
+    else if (m.t === 'user' && m.id === myId) applyPatch({ role: m.role || '', roles: m.roles || [], tier: m.tier || '', premium: !!m.premium, banned: !!m.banned });
+    else if (m.t === 'announce') applyPatch({ announce: m.a || null });
+    else if (m.t === 'err' && win && !win.isDestroyed()) win.webContents.send('chat', m);
+  });
+  const again = () => { clearInterval(wsPing); ws = null; wsTimer = setTimeout(connectWs, wsDelay); wsDelay = Math.min(60000, wsDelay * 2); };
+  ws.on('close', again);
+  ws.on('error', (e) => { log('ws error ' + e.message); });
+}
+ipcMain.handle('chat-hist', () => chatHist);
+ipcMain.handle('chat-send', (_e, text) => wsSend({ t: 'chat', text: String(text || '').slice(0, 300) }));
+ipcMain.handle('chat-del', (_e, id) => wsSend({ t: 'del', id: String(id) }));
+ipcMain.handle('auth-state', async (_e, fast) => {
+  if (!fast) await refreshMe();
   const s = auth.get();
   const role = s.ok ? (s.admin ? 'owner' : me.role) : '';
   return { ...s, role, roles: s.ok ? (s.admin ? ['owner'] : (me.roles || [])) : [], staff: !!role, premium: !!(s.ok && (role || me.premium)), tier: !s.ok ? '' : (s.admin ? 'ultra' : (me.tier || (role || me.premium ? 'premium' : ''))), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
@@ -358,6 +442,7 @@ app.whenReady().then(async () => {
   ping();
   setInterval(ping, 20 * 60 * 1000);
   setTimeout(refreshMe, 20000);
+  connectWs(); setInterval(connectWs, 15000);
   setInterval(refreshMe, 3 * 60 * 1000);
   createTray();
   if (app.isPackaged && !fs.existsSync(AUTOSTART_FLAG())) { setAutostart(true); try { fs.writeFileSync(AUTOSTART_FLAG(), '1'); } catch (e) {} }

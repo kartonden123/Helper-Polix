@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.3.0',
+  version: '2.4.0',
+  notifyTest: () => ipcRenderer.invoke('notify-test'),
+  onMeChanged: (cb) => ipcRenderer.on('me-changed', () => cb()),
+  chatHist: () => ipcRenderer.invoke('chat-hist'),
+  chatSend: (t) => ipcRenderer.invoke('chat-send', t),
+  chatDel: (id) => ipcRenderer.invoke('chat-del', id),
+  onChat: (cb) => ipcRenderer.on('chat', (_e, m) => cb(m)),
   pokerShot: () => ipcRenderer.invoke('poker-shot'),
   ready: () => ipcRenderer.send('ov-ready'),
   autostartGet: () => ipcRenderer.invoke('autostart-get'),
@@ -15,7 +21,7 @@ contextBridge.exposeInMainWorld('overlay', {
   setPosition: (s) => ipcRenderer.send('ov-position', s),
   onShow: (cb) => ipcRenderer.on('ov-show', () => cb()),
   login: () => ipcRenderer.invoke('auth-login'),
-  authState: () => ipcRenderer.invoke('auth-state'),
+  authState: (fast) => ipcRenderer.invoke('auth-state', !!fast),
   onUpdate: (cb) => ipcRenderer.on('update-state', (_e, s) => cb(s)),
   updateState: () => ipcRenderer.invoke('update-state'),
   updateAction: (a) => ipcRenderer.send('update-action', a),

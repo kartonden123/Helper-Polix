@@ -131,7 +131,7 @@ function mark(text,words){
   words.forEach(w=>{if(w.length<2)return;t=t.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),s=>`<mark>${s}</mark>`);});
   return t;
 }
-const ALIAS={'пго':'Правила государственных','осн':'Основные правила','основные':'Основные правила','пп':'Основные правила','ук':'Уголовный','дк':'Дорожный','ак':'Административный','пк':'Процессуальный','тк':'Трудовой','кэ':'Кодекс этики','лспд':'LSPD','lspd':'LSPD','фиб':'FIB','fib':'FIB','шериф':'Sheriff','шерифф':'Sheriff','lscsd':'Sheriff','sheriff':'Sheriff','санг':'San-Andreas','sang':'San-Andreas','ems':'EMS','емс':'EMS','прокуратура':'Прокуратуры','военное':'военного','ограбления':'ограблений','банки':'банков','бизнесы':'бизнесов','семьи':'семейных'};
+const ALIAS={'пго':'Правила государственных','осн':'Основные правила','основные':'Основные правила','пп':'Основные правила','ук':'Уголовный','дк':'Дорожный','ак':'Административный','пк':'Процессуальный','тк':'Трудовой','кэ':'Кодекс этики','лспд':'LSPD','lspd':'LSPD','фиб':'FIB','fib':'FIB','шериф':'Sheriff','шерифф':'Sheriff','lscsd':'Sheriff','sheriff':'Sheriff','санг':'San-Andreas','sang':'San-Andreas','ems':'EMS','ву':'устав','устав':'устав','уставы':'устав','government':'Government','правительство':'Government','weazel':'Weazel','визел':'Weazel','емс':'EMS','прокуратура':'Прокуратуры','военное':'военного','ограбления':'ограблений','банки':'банков','бизнесы':'бизнесов','семьи':'семейных'};
 const ALIAS_SEG={'ук':1,'дк':1,'ак':1};
 const CATTAB=c=>(c==='rules'||c==='org')?'rules':'law';
 function search(raw){
@@ -147,7 +147,7 @@ function search(raw){
   const wd=a=>a.map(w=>/^[\d.]+$/.test(w)||w.length<5?w:w.slice(0,w.length-2));
   let segDoc=null;
   if(dn){
-    const hit=e=>e.d.name.indexOf(dn)>=0;
+    const dnl=dn.toLowerCase();const hit=e=>e.d.name.toLowerCase().indexOf(dnl)>=0;
     const seg=ALIAS_SEG[aliasTok]?aliasTok.toUpperCase():null;
     if(nums.length){
       const res=new RegExp('^'+nums[0].replace(/\./g,'\\.')+'(?![\\d])');
@@ -316,4 +316,5 @@ if(window.overlay&&window.overlay.resize){
 <script src="notice.js"></script>
 <script src="split.js"></script>
 <script src="poker.js"></script>
+<script src="chat.js"></script>
 </body></html>

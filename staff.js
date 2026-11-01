@@ -193,9 +193,10 @@
     X.applyTheme(LS.get('ph_theme', 'scarlet'));
     if (window.PHX_applyLook) window.PHX_applyLook();
   }
-  function refresh() { if (window.overlay.authState) window.overlay.authState().then((s) => setTimeout(() => apply(s), 80)); }
+  function refresh(fast) { if (window.overlay.authState) window.overlay.authState(fast === true).then((s) => setTimeout(() => apply(s), 80)); }
   refresh();
   window.PHX_refreshAuth = refresh;
+  if (window.overlay.onMeChanged) window.overlay.onMeChanged(() => refresh(true));
   if (window.overlay.onShow) window.overlay.onShow(refresh);
   setInterval(refresh, 5 * 60 * 1000);
 })();

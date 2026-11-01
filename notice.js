@@ -18,6 +18,7 @@
   const ICON = { update: '⬇', role: '🛡', premium: '⭐', ban: '⛔', announce: '📢', info: '🔔' };
   function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   function show(n) {
+    if (n.silent) { const rf = window.PHX_refreshAuth; if (typeof rf === 'function' && n.kind !== 'update') rf(true); return; }
     let box = document.getElementById('toasts');
     if (!box) { box = document.createElement('div'); box.id = 'toasts'; document.body.appendChild(box); }
     const t = document.createElement('div');

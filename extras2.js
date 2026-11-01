@@ -185,7 +185,7 @@
       : (S.premium ? lock('Ультра Премиум: неоновая рамка, свой цвет, ИИ на 10 вопросов в день. Выдаёт администрация.') : '');
     list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
       <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · ${esc(tierName)}</small></div></div>
-      <div class="actions"><button class="abtn" id="updChk">🔄 Проверить обновления</button><button class="abtn" id="autoBtn">🚀 Автозапуск с Windows…</button></div><div class="set-row" id="updRes"></div>
+      <div class="actions"><button class="abtn" id="updChk">🔄 Проверить обновления</button><button class="abtn" id="autoBtn">🚀 Автозапуск с Windows…</button><button class="abtn" id="ntBtn">🔔 Проверить уведомления</button></div><div class="set-row" id="updRes"></div>
       <div class="set-row">Размер текста: <b id="zv">${zoom}%</b></div><input class="rng" id="zr" type="range" min="80" max="140" step="5" value="${zoom}">
       ${premBlock}${ultraBlock}</div>`;
     $('#bk').onclick = goBack; $('#cnt').textContent = '';
@@ -197,6 +197,7 @@
       const M = { latest: '✅ У вас последняя версия ' + (res.current || ver), available: '⬇ Доступна версия ' + res.version + '. Карточка с кнопкой «Скачать» вверху меню.', downloading: '⬇ Версия ' + res.version + ' скачивается…', ready: '✅ Версия ' + res.version + ' скачана. Нажмите «Установить» вверху меню.', dev: 'Режим разработки: проверка недоступна.', error: '⚠ Не удалось проверить. Проверьте интернет.' };
       r.textContent = M[res.state] || M.error;
     };
+    $('#ntBtn').onclick = () => { if (window.overlay.notifyTest) window.overlay.notifyTest(); };
     $('#zr').oninput = (e) => { LS.set('ph_zoom', +e.target.value); $('#zv').textContent = e.target.value + '%'; applyZoom(); };
     if (!S.premium) return;
     list.querySelectorAll('.swb').forEach((b) => (b.onclick = () => { LS.set('ph_theme', b.dataset.t); LS.set('ph_accOn', false); X.applyTheme(b.dataset.t); openSettings(); }));
