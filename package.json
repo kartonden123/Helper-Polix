@@ -23,6 +23,7 @@
       "index.html",
       "overlay.css"
     ],
+    "publish": null,
     "win": {
       "target": [
         "nsis"
