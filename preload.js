@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.2.2',
+  version: '2.3.0',
+  pokerShot: () => ipcRenderer.invoke('poker-shot'),
   ready: () => ipcRenderer.send('ov-ready'),
   autostartGet: () => ipcRenderer.invoke('autostart-get'),
   autostartSet: (on) => ipcRenderer.invoke('autostart-set', !!on),

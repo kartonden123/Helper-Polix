@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog, ipcMain, Notification, desktopCapturer } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -232,6 +232,22 @@ const AUTOSTART_FLAG = () => path.join(app.getPath('userData'), 'autostart-init'
 function setAutostart(on) { if (!app.isPackaged) return; try { app.setLoginItemSettings({ openAtLogin: !!on, args: ['--hidden'] }); } catch (e) { log('autostart error ' + e.message); } }
 ipcMain.handle('autostart-get', () => (app.isPackaged ? app.getLoginItemSettings().openAtLogin : false));
 ipcMain.handle('autostart-set', (_e, on) => { setAutostart(on); return app.isPackaged ? app.getLoginItemSettings().openAtLogin : false; });
+// снимок экрана для режима покера (только Главный Администратор и роль ДПВ); файл остаётся у пользователя на компьютере
+ipcMain.handle('poker-shot', async () => {
+  if (!(auth.get().admin || (me.roles || []).includes('dpv'))) return { error: 'forbidden' };
+  try {
+    const wasVisible = !!(win && win.isVisible());
+    if (wasVisible) win.setOpacity(0);
+    await new Promise(r => setTimeout(r, 200));
+    const d = screen.getPrimaryDisplay(); const sf = d.scaleFactor || 1;
+    const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(d.size.width * sf), height: Math.round(d.size.height * sf) } });
+    if (wasVisible) win.setOpacity(1);
+    const img = srcs[0] && srcs[0].thumbnail; if (!img || img.isEmpty()) return { error: 'empty' };
+    const dir = path.join(app.getPath('userData'), 'poker-shots'); fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'shot-' + Date.now() + '.png'); fs.writeFileSync(file, img.toPNG());
+    return { path: file };
+  } catch (e) { if (win) win.setOpacity(1); log('shot error ' + e.message); return { error: 'fail' }; }
+});
 ipcMain.on('ov-blur', (_e, on) => { try { if (win && typeof win.setBackgroundMaterial === 'function') win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch (e) { log('blur error ' + e.message); } });
 ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
@@ -242,7 +258,7 @@ ipcMain.on('ov-position', (_e, side) => {
 });
 // Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
-let me = { premium: false, tier: '', role: '', banned: false, announce: null };
+let me = { roles: [], premium: false, tier: '', role: '', banned: false, announce: null };
 try { me = { ...me, ...JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')) }; } catch (e) {}
 let meKnown = fs.existsSync(PREMIUM_FILE());
 const RN_RU = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор' };
@@ -257,18 +273,21 @@ function diffMe(a, b, isOwner) {
     else if (b.tier === 'premium') notify(a.tier === 'ultra' ? 'Ультра Премиум снят' : 'Вам выдан Premium', a.tier === 'ultra' ? 'Остался обычный Premium.' : 'Открыты калькулятор дела, избранное, заметки, таймеры и настройки.', 'premium');
     else notify(a.tier === 'ultra' ? 'Ультра Премиум снят' : 'Premium снят', 'Дополнительные функции отключены.', 'premium');
   }
+  const ap = (a.roles || []).includes('dpv'), bp = (b.roles || []).includes('dpv');
+  if (!ap && bp) notify('Вам выдана роль ДПВ', 'Открыт режим покера (кнопка ♠).', 'role');
+  if (ap && !bp) notify('Роль ДПВ снята', 'Режим покера отключён.', 'role');
   if (!a.banned && b.banned) notify('Доступ ограничен', 'Администратор заблокировал вам доступ к хелперу.', 'ban');
   if (a.banned && !b.banned) notify('Доступ восстановлен', 'Блокировка снята.', 'ban');
   if (b.announce && b.announce.text && (!a.announce || a.announce.id !== b.announce.id)) notify('Объявление', b.announce.text, 'announce');
 }
 async function refreshMe() {
   const t = auth.token();
-  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false, tier: '', role: '', banned: false, announce: null }; return; }
+  if (!t || !auth.get().ok) { if (!auth.get().ok) me = { roles: [], premium: false, tier: '', role: '', banned: false, announce: null }; return; }
   try {
     const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
     if (r.ok) {
       const d = await r.json();
-      const nm = { premium: !!d.premium, tier: d.tier || (d.premium ? 'premium' : ''), role: d.role || '', banned: !!d.banned, announce: d.announce || null };
+      const nm = { roles: d.roles || [], premium: !!d.premium, tier: d.tier || (d.premium ? 'premium' : ''), role: d.role || '', banned: !!d.banned, announce: d.announce || null };
       if (meKnown) diffMe(me, nm, !!d.admin);
       meKnown = true; me = nm;
       try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {}
@@ -279,7 +298,7 @@ ipcMain.handle('auth-state', async () => {
   await refreshMe();
   const s = auth.get();
   const role = s.ok ? (s.admin ? 'owner' : me.role) : '';
-  return { ...s, role, staff: !!role, premium: !!(s.ok && (role || me.premium)), tier: !s.ok ? '' : (s.admin ? 'ultra' : (me.tier || (role || me.premium ? 'premium' : ''))), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
+  return { ...s, role, roles: s.ok ? (s.admin ? ['owner'] : (me.roles || [])) : [], staff: !!role, premium: !!(s.ok && (role || me.premium)), tier: !s.ok ? '' : (s.admin ? 'ultra' : (me.tier || (role || me.premium ? 'premium' : ''))), banned: !!(s.ok && me.banned && !s.admin), announce: s.ok ? me.announce : null };
 });
 // панель персонала и список «В сети»: права проверяет сервер
 ipcMain.handle('staff-api', async (_e, method, apiPath, body) => {

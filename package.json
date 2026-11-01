@@ -1,6 +1,6 @@
 {
   "name": "majestic-catalog-overlay",
-  "version": "2.2.2",
+  "version": "2.3.0",
   "description": "Polix Helper by KATO",
   "main": "main.js",
   "author": "KATO",
@@ -27,6 +27,7 @@
       "ak.js",
       "notice.js",
       "split.js",
+      "poker.js",
       "laws.js",
       "rules.js",
       "extras.js",

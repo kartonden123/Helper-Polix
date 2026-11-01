@@ -6,11 +6,12 @@
   if (!S || !X || !(window.overlay && window.overlay.staffApi)) return;
   const $ = (s) => document.querySelector(s);
   const { LS } = X;
-  const RN = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор' };
+  const RN = { owner: 'Главный Администратор', admin: 'Зам. Администратор', jr: 'Мл. Администратор', smod: 'Ст. Модератор', mod: 'Модератор', dpv: 'ДПВ' };
   const RK = { owner: 5, admin: 4, jr: 3, smod: 2, mod: 1 };
-  const RC = { owner: '#ff2d55', admin: '#ff8a3d', jr: '#ffd34d', smod: '#b387ff', mod: '#6bb7ff' };
+  const RC = { owner: '#ff2d55', admin: '#ff8a3d', jr: '#ffd34d', smod: '#b387ff', mod: '#6bb7ff', dpv: '#3ddc84' };
   const rank = (r) => RK[r] || 0;
   const rb = (r) => (r ? `<span class="rbadge" style="--c:${RC[r] || '#ccc'}">${RN[r] || esc(r)}</span>` : '');
+  const rbs = (u) => ((u.roles && u.roles.length) ? u.roles : [u.role]).filter(Boolean).sort((a, b) => rank(b) - rank(a)).map(rb).join('');
   const tierOf = (u) => u.tier || (u.premium ? 'premium' : '');
   const pb = (u) => { const t = tierOf(u); return t === 'ultra' && !(RK[u.role] >= 4) ? '<span class="rbadge" style="--c:#5ef0ff">💎 Ультра</span>' : t === 'premium' && !u.role ? '<span class="rbadge" style="--c:#ffc43c">Premium</span>' : ''; };
 
@@ -51,7 +52,7 @@
     const d = await api('GET', '/online');
     if (!d || d.error) { list.innerHTML = backBtn() + `<div class="det"><h2>👥 В сети</h2><p class="t">${esc((d && d.error) || 'Ошибка')}</p></div>`; $('#bk').onclick = goBack; return; }
     list.innerHTML = backBtn() + `<div class="det"><h2>👥 В сети: ${d.online}</h2><p class="t">Пользователи хелпера за последние 35 минут. Всего зарегистрировано: ${d.total}.</p>
-      ${d.users.map((u) => `<div class="urow"><span class="dot on"></span><span>${esc(u.name)}${rb(u.role)}${pb(u)}</span><small>v${esc(u.version || '?')}</small></div>`).join('') || '<div class="empty">Сейчас никого нет</div>'}</div>`;
+      ${d.users.map((u) => `<div class="urow"><span class="dot on"></span><span>${esc(u.name)}${rbs(u)}${pb(u)}</span><small>v${esc(u.version || '?')}</small></div>`).join('') || '<div class="empty">Сейчас никого нет</div>'}</div>`;
     $('#bk').onclick = goBack;
   }
 
@@ -70,23 +71,26 @@
     const staff = u.role !== '';
     const premBtn = mine >= 3 && !staff ? `<select class="mini" data-a="tier" data-id="${esc(u.id)}"><option value="0"${tierOf(u) === '' ? ' selected' : ''}>Без Premium</option><option value="1"${tierOf(u) === 'premium' ? ' selected' : ''}>⭐ Premium</option>${mine >= 4 ? `<option value="2"${tierOf(u) === 'ultra' ? ' selected' : ''}>💎 Ультра</option>` : ''}</select>` : '';
     const roleSel = mine >= 4 && canEdit(u) ? `<select class="mini" data-a="role" data-id="${esc(u.id)}">${roleOptions(u.role, u)}</select>` : '';
+    const hasP = (u.roles || []).includes('dpv');
+    const dpvBtn = mine >= 4 ? `<button class="mini${hasP ? ' on' : ''}" data-a="dpv" data-id="${esc(u.id)}">${hasP ? '♠ ДПВ снять' : '♠ ДПВ'}</button>` : '';
     const banBtn = mine >= 4 && canEdit(u) ? `<button class="mini${u.banned ? ' bad' : ''}" data-a="ban" data-id="${esc(u.id)}">${u.banned ? '✔ разблок.' : '🚫 блок'}</button>` : '';
-    return `<div class="urow" data-uid="${esc(u.id)}"><span class="dot${u.online ? ' on' : ''}"></span><span>${esc(u.name)}${rb(u.role)}${pb(u)}${u.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}<br><small>${esc(u.id)} · v${esc(u.version || '?')} · ${ago(u.last_seen)}</small></span><div class="uact">${premBtn}${roleSel}${banBtn}</div></div>`;
+    return `<div class="urow" data-uid="${esc(u.id)}"><span class="dot${u.online ? ' on' : ''}"></span><span>${esc(u.name)}${rbs(u)}${pb(u)}${u.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}<br><small>${esc(u.id)} · v${esc(u.version || '?')} · ${ago(u.last_seen)}</small></span><div class="uact">${premBtn}${roleSel}${dpvBtn}${banBtn}</div></div>`;
   }
 
   async function act(kind, id, extra) {
     let path, body;
     if (kind === 'prem') { path = '/staff/premium'; body = { id, tier: extra }; }
     else if (kind === 'role') { path = '/staff/role'; body = { id, role: extra }; }
+    else if (kind === 'dpv') { path = '/staff/role'; body = { id, role: 'dpv', on: extra }; }
     else { path = '/staff/ban'; body = { id, on: extra }; }
     say('Отправляю…', true);
     const r = await api('POST', path, body);
     if (!r || r.error) { say('Ошибка: ' + ((r && r.error) || 'нет ответа от сервера'), false); return null; }
-    say(kind === 'prem' ? (r.tier === 'ultra' ? 'Ультра Премиум выдан: ' : r.premium ? 'Premium выдан: ' : 'Premium снят: ') + id : kind === 'role' ? (r.role ? 'Роль «' + RN[r.role] + '» назначена: ' : 'Роль снята: ') + id : (r.banned ? 'Заблокирован: ' : 'Разблокирован: ') + id, true);
+    say(kind === 'prem' ? (r.tier === 'ultra' ? 'Ультра Премиум выдан: ' : r.premium ? 'Premium выдан: ' : 'Premium снят: ') + id : kind === 'dpv' ? (extra ? 'Роль ДПВ выдана: ' : 'Роль ДПВ снята: ') + id : kind === 'role' ? (r.role ? 'Роль «' + RN[r.role] + '» назначена: ' : 'Роль снята: ') + id : (r.banned ? 'Заблокирован: ' : 'Разблокирован: ') + id, true);
     // сразу обновляем строку локально: список на сервере обновляется с задержкой до минуты
     if (cache) {
       const u = cache.users.find((x) => x.id === id);
-      if (u) { if (kind === 'prem') { u.premium = r.premium; u.tier = r.tier; } else if (kind === 'role') { u.role = r.role; u.premium = r.premium || !!r.role; if (r.role) u.tier = RK[r.role] >= 4 ? 'ultra' : 'premium'; } else u.banned = r.banned; }
+      if (u) { if (kind === 'prem') { u.premium = r.premium; u.tier = r.tier; } else if (kind === 'dpv') { u.roles = r.roles; } else if (kind === 'role') { u.role = r.role; u.roles = r.roles; u.premium = r.premium || !!r.role; if (r.role) u.tier = RK[r.role] >= 4 ? 'ultra' : 'premium'; } else u.banned = r.banned; }
     }
     return r;
   }
@@ -95,6 +99,7 @@
     list.querySelectorAll('[data-a]').forEach((el) => {
       const id = el.dataset.id, a = el.dataset.a;
       if (a === 'role') el.onchange = async () => { await act('role', id, el.value); drawUsers(); };
+      else if (a === 'dpv') el.onclick = async () => { const u = cache.users.find((x) => x.id === id); if (!u) return; await act('dpv', id, !(u.roles || []).includes('dpv')); drawUsers(); };
       else if (a === 'tier') el.onchange = async () => { await act('prem', id, +el.value); drawUsers(); };
       else el.onclick = async () => {
         const u = cache.users.find((x) => x.id === id); if (!u) return;
@@ -129,7 +134,7 @@
       });
     } else if (tab === 'id') {
       $('#stBody').innerHTML = `<input class="fld" id="stId" placeholder="Discord ID человека (ПКМ по нему → Копировать ID)"><div class="stmsg" id="stMsg"></div><div id="stInfo"></div>
-        <div class="actions"><button class="abtn" id="stLook">🔎 Проверить</button><button class="abtn on" id="stPOn">⭐ Premium</button>${mine >= 4 ? '<button class="abtn on" id="stUOn">💎 Ультра Премиум</button>' : ''}<button class="abtn" id="stPOff">Снять</button></div>
+        <div class="actions"><button class="abtn" id="stLook">🔎 Проверить</button><button class="abtn on" id="stPOn">⭐ Premium</button>${mine >= 4 ? '<button class="abtn on" id="stUOn">💎 Ультра Премиум</button>' : ''}<button class="abtn" id="stPOff">Снять</button>${mine >= 4 ? '<button class="abtn" id="stDOn">♠ ДПВ</button><button class="abtn" id="stDOff">Снять ДПВ</button>' : ''}</div>
         ${mine >= 4 ? `<div class="actions"><select class="mini" id="stRole">${roleOptions('', {})}</select><button class="abtn" id="stRoleGo">Назначить роль</button><button class="abtn" id="stBanOn">🚫 Заблокировать</button><button class="abtn" id="stBanOff">Разблокировать</button></div>` : ''}`;
       $('#stId').addEventListener('keydown', (e) => e.stopPropagation());
       const gid = () => { const v = $('#stId').value.trim(); if (!/^\d{5,25}$/.test(v)) { say('Введите Discord ID: только цифры.', false); return null; } return v; };
@@ -138,9 +143,10 @@
         const r = await api('GET', '/staff/lookup?id=' + id);
         if (!r || r.error) return say('Ошибка: ' + ((r && r.error) || 'нет ответа'), false);
         say('Данные с сервера получены', true);
-        $('#stInfo').innerHTML = `<div class="note">${r.seen ? esc(r.seen.name) : 'Ещё не заходил в хелпер'}${rb(r.role)}${pb(r)}${r.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}</div>`;
+        $('#stInfo').innerHTML = `<div class="note">${r.seen ? esc(r.seen.name) : 'Ещё не заходил в хелпер'}${rbs(r)}${pb(r)}${r.banned ? '<span class="rbadge" style="--c:#ff6b6b">заблокирован</span>' : ''}</div>`;
       };
       $('#stPOn').onclick = async () => { const id = gid(); if (id) await act('prem', id, 1); };
+      if (mine >= 4) { $('#stDOn').onclick = async () => { const id = gid(); if (id) await act('dpv', id, true); }; $('#stDOff').onclick = async () => { const id = gid(); if (id) await act('dpv', id, false); }; }
       if (mine >= 4) $('#stUOn').onclick = async () => { const id = gid(); if (id) await act('prem', id, 2); };
       $('#stPOff').onclick = async () => { const id = gid(); if (id) await act('prem', id, 0); };
       if (mine >= 4) {
@@ -174,7 +180,8 @@
 
   function apply(s) {
     if (!s) return;
-    S.role = s.role || ''; S.rank = rank(S.role); S.premium = !!s.premium; S.admin = S.role === 'owner'; S.tier = s.tier || (S.premium ? 'premium' : ''); S.ultra = S.tier === 'ultra';
+    S.role = s.role || ''; S.rank = rank(S.role); S.premium = !!s.premium; S.admin = S.role === 'owner'; S.tier = s.tier || (S.premium ? 'premium' : ''); S.ultra = S.tier === 'ultra'; S.roles = s.roles || (S.role ? [S.role] : []); S.poker = S.role === 'owner' || S.roles.includes('dpv');
+    const pk = $('#pokerBtn'); if (pk) pk.style.display = S.poker ? '' : 'none';
     if (s.user) S.id = s.user.id;
     if (s.banned) {
       document.getElementById('ui').innerHTML = '<div class="bancard"><div style="font-size:34px">🚫</div><h2 style="margin:8px 0">Доступ ограничен</h2><p style="color:#cfc8d3">Администратор ограничил вам доступ к хелперу. Если это ошибка, напишите администрации семьи.</p></div>';
