@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>Polix Helper</title>
+<style>
+:root{--accent:#ff4d6d;--muted:#8d8593}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:#f4f1f5;font:14px/1.45 "Segoe UI",system-ui,sans-serif;overflow:hidden;user-select:none}
+.wrap{padding:36px 14px;display:flex;justify-content:center}
+.card{width:100%;max-width:560px;background:linear-gradient(180deg,#221f27,#16141a);border:1px solid rgba(255,255,255,.1);border-radius:22px;padding:26px 28px;box-shadow:0 20px 50px -18px rgba(0,0,0,.8);animation:in .35s cubic-bezier(.2,.8,.2,1) both;-webkit-app-region:drag}
+.card>*{-webkit-app-region:no-drag}
+@keyframes in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.brand{font-weight:800;font-size:20px}.brand span{color:var(--accent)}
+.by{float:right;font-size:11px;color:var(--muted);letter-spacing:.06em}.by b{color:var(--accent)}
+p{color:#cfc8d3;margin:12px 0 18px}
+button{width:100%;border:0;border-radius:14px;padding:13px 16px;font:inherit;font-size:15px;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,#5865f2,#7983f5);transition:filter .2s,transform .1s}
+button:hover{filter:brightness(1.12)}button:active{transform:scale(.99)}button:disabled{opacity:.55;cursor:default}
+.msg{margin-top:14px;min-height:20px;font-size:13px;color:#ff9d9d}
+.msg.ok{color:#8ee6a8}
+.sub{margin-top:10px;font-size:11px;color:var(--muted)}
+</style></head><body>
+<div class="wrap"><div class="card" id="card">
+  <div class="by">By <b>KATO</b></div>
+  <div class="brand">Polix <span>Helper</span></div>
+  <p>Чтобы пользоваться хелпером, нужно войти через Discord. Программа проверит, что вы состоите на сервере семьи. Пароль Discord она не видит.</p>
+  <button id="go">Войти через Discord</button>
+  <div class="msg" id="msg"></div>
+  <div class="sub">Alt+Q — скрыть окно</div>
+</div></div>
+<script>
+const go=document.getElementById('go'),msg=document.getElementById('msg');
+function show(s){
+  if(s&&s.reason){msg.className='msg';msg.textContent=s.reason;}
+  else if(s&&s.user){msg.className='msg ok';msg.textContent='Вошли как '+s.user.name;}
+}
+if(window.overlay&&window.overlay.authState)window.overlay.authState().then(show);
+go.onclick=async()=>{
+  go.disabled=true;go.textContent='Ждём подтверждения в браузере…';msg.textContent='';
+  const s=await window.overlay.login();
+  go.disabled=false;go.textContent='Войти через Discord';show(s);
+};
+if(window.overlay&&window.overlay.ignore){
+  let ig=null;const set=v=>{if(v!==ig){ig=v;window.overlay.ignore(v);}};
+  document.addEventListener('mousemove',e=>{const el=document.elementFromPoint(e.clientX,e.clientY);set(!(el&&el.closest('.card')));});
+  document.addEventListener('mouseleave',()=>set(true));
+}
+</script></body></html>

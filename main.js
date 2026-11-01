@@ -2,6 +2,7 @@ const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dia
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
+const auth = require('./auth');
 
 const APP_NAME = 'Polix Helper';
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
@@ -61,7 +62,7 @@ function createWindow() {
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setOpacity(OPACITY);
-  win.loadFile(path.join(__dirname, 'index.html'));
+  loadContent();
   win.setIgnoreMouseEvents(true, { forward: true });
 
   win.webContents.on('did-fail-load', (_e, code, desc) => log(`did-fail-load ${code} ${desc}`));
@@ -73,6 +74,11 @@ function createWindow() {
     if (!quitting) { e.preventDefault(); hideWin(); }
   });
   win.on('closed', () => { win = null; });
+}
+
+function loadContent() {
+  if (!win) return;
+  win.loadFile(path.join(__dirname, auth.get().ok ? 'index.html' : 'login.html'));
 }
 
 function showWin() {
@@ -144,15 +150,32 @@ function updateTrayMenu() {
     { label: updateState, enabled: false },
     { label: 'Проверить обновления', click: checkUpdates },
     { type: 'separator' },
+    { label: 'Выйти из Discord', click: () => { auth.logout(); loadContent(); showWin(); } },
     { label: 'Выйти полностью', click: quitApp }
   ]));
 }
 
 ipcMain.on('ov-ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(v, { forward: true }); });
 ipcMain.on('ov-hide', () => hideWin());
+ipcMain.handle('auth-state', () => auth.get());
+ipcMain.handle('auth-login', async () => {
+  const s = await auth.login();
+  log('auth login: ' + s.ok + ' ' + (s.reason || ''));
+  if (s.ok) loadContent();
+  showWin();
+  return s;
+});
+async function recheckAuth() {
+  const was = auth.get().ok;
+  const s = await auth.recheck();
+  log('auth recheck: ' + s.ok + ' ' + (s.reason || ''));
+  if (was !== s.ok) { loadContent(); if (!s.ok) showWin(); }
+}
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await auth.recheck();
   createWindow();
+  setInterval(recheckAuth, 3 * 60 * 60 * 1000);
   createTray();
   setupUpdater();
   const keys = [TOGGLE_KEY, 'Control+Alt+Q'];
