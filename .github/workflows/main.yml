@@ -1,25 +1,4 @@
-name: Build installer
-
-on:
-  push:
-    branches: [main, master]
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 20
-
-      - run: npm install
-
-      - run: npm run build
-
-      - uses: actions/upload-artifact@v5
-        with:
-          name: PolixCreatorKATO-setup
-          path: dist/*.exe
+name: Release installer
+on: {push: {tags: ['v*']}, workflow_dispatch: {}}
+permissions: {contents: write}
+jobs: {release: {runs-on: windows-latest, steps: [{uses: actions/checkout@v5}, {uses: actions/setup-node@v5, with: {node-version: 20}}, {run: npm install}, {run: npm run release, env: {GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}'}}]}}
