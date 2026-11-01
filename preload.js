@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.4.0',
+  version: '2.4.1',
+  blur: process.argv.includes('--blur-mode'),
   notifyTest: () => ipcRenderer.invoke('notify-test'),
   onMeChanged: (cb) => ipcRenderer.on('me-changed', () => cb()),
   chatHist: () => ipcRenderer.invoke('chat-hist'),

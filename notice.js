@@ -3,12 +3,12 @@
   const css = document.createElement('style');
   css.textContent = `
   #toasts{position:fixed;right:14px;bottom:14px;z-index:99;display:flex;flex-direction:column;gap:8px;max-width:340px;pointer-events:none}
-  .toast{pointer-events:auto;display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:14px;background:#1b171d;border:1px solid var(--accent,#d4264a);color:#fff;font-size:13px;box-shadow:0 8px 28px rgba(0,0,0,.5);animation:toastIn .35s both;cursor:pointer}
+  .toast{pointer-events:auto;display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:14px;background:#1b171d;border:1px solid var(--accent,#d4264a);color:#fff;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.4);animation:toastIn .35s both;cursor:pointer}
   .toast b{display:block;margin-bottom:2px}.toast span{color:#cfc8d3;font-size:12px;line-height:1.35}
   .toast i{font-style:normal;font-size:18px}
   .toast.out{animation:toastOut .3s both}
   .set-sec{margin:14px 0 4px;font-weight:700;font-size:13px;color:var(--accent)}.lockrow{color:#a99fb0;font-size:12px}
-  .neon .bar,.neon .panel{border-color:rgba(var(--acc-rgb),.75)!important;box-shadow:0 0 0 1px rgba(var(--acc-rgb),.35),0 0 22px rgba(var(--acc-rgb),.45),0 0 60px -10px rgba(var(--acc-rgb),.5)!important}
+  .neon .bar,.neon .panel{border-color:rgba(var(--acc-rgb),.75)!important;box-shadow:0 0 0 1px rgba(var(--acc-rgb),.4),0 0 10px rgba(var(--acc-rgb),.5)!important}
   .about{display:flex;align-items:center;gap:12px;margin:2px 0 12px}.about img{width:42px;height:42px;border-radius:10px}
   .about small{display:block;color:#a99fb0;font-size:12px;margin-top:2px}
   @keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.96)}to{opacity:1;transform:none}}

@@ -167,7 +167,7 @@
   function hexRgb(h) { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
   function openSettings() {
     view = 'memo'; panel.classList.add('on');
-    const cur = LS.get('ph_theme', 'scarlet'), zoom = LS.get('ph_zoom', 100), op = LS.get('ph_op', 100), neon = !!LS.get('ph_neon', false), acc = LS.get('ph_acc', '#ff4d6d');
+    const cur = LS.get('ph_theme', 'scarlet'), zoom = LS.get('ph_zoom', 100), op = LS.get('ph_op', 100), neon = !!LS.get('ph_neon', false), blurOn = !!(window.overlay && window.overlay.blur), acc = LS.get('ph_acc', '#ff4d6d');
     const ver = (window.overlay && window.overlay.version) || '';
     const tierName = S.admin ? 'Главный Администратор' : S.ultra ? 'Ультра Премиум' : S.premium ? 'Premium' : 'Обычный доступ';
     const lock = (t) => `<div class="set-row lockrow">🔒 ${t}</div>`;
@@ -179,9 +179,9 @@
       : lock('Темы, прозрачность фона и положение окна доступны с Premium.');
     const ultraBlock = S.ultra ? `
       <div class="set-sec">💎 Ультра Премиум</div>
-      <div class="actions"><button class="abtn${neon ? ' on' : ''}" id="blurBtn">${neon ? '✔ Неоновая рамка включена' : '✨ Неоновая рамка'}</button></div>
+      <div class="actions"><button class="abtn${blurOn ? ' on' : ''}" id="blurWin">${blurOn ? '✔ Размытие фона (Windows 11)' : '🌫 Размытие фона (Windows 11)'}</button><button class="abtn${neon ? ' on' : ''}" id="blurBtn">${neon ? '✔ Неоновая рамка' : '✨ Неоновая рамка'}</button></div>
       <div class="set-row">Свой цвет оформления <input type="color" id="accPick" value="${esc(acc)}" style="vertical-align:middle;margin-left:8px;width:42px;height:26px;border:0;background:none;cursor:pointer"> <button class="mini" id="accOn">${LS.get('ph_accOn', false) ? '✔ включён' : 'применить'}</button></div>
-      <div class="set-row"><small>ИИ-помощник: 10 вопросов в день (у Premium 5).</small></div>`
+      <div class="set-row"><small>Размытие фона пересоздаёт окно и работает на Windows 11 (при включении фон становится общим стеклом). ИИ: 10 вопросов в день.</small></div>`
       : (S.premium ? lock('Ультра Премиум: неоновая рамка, свой цвет, ИИ на 10 вопросов в день. Выдаёт администрация.') : '');
     list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
       <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · ${esc(tierName)}</small></div></div>
@@ -204,6 +204,7 @@
     $('#or').oninput = (e) => { LS.set('ph_op', +e.target.value); $('#ov').textContent = e.target.value + '%'; applyLook(); };
     list.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { LS.set('ph_pos', b.dataset.p); applyPos(); }));
     if (!S.ultra) return;
+    $('#blurWin').onclick = () => { if (window.overlay.setBlur) window.overlay.setBlur(!blurOn); };   // окно пересоздаётся
     $('#blurBtn').onclick = () => { LS.set('ph_neon', !LS.get('ph_neon', false)); applyLook(); openSettings(); };
     $('#accPick').oninput = (e) => { LS.set('ph_acc', e.target.value); if (LS.get('ph_accOn', false)) X.applyTheme(); };
     $('#accOn').onclick = () => { LS.set('ph_accOn', !LS.get('ph_accOn', false)); X.applyTheme(); openSettings(); };

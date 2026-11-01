@@ -11,9 +11,12 @@ const WIDTH = 880;
 const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
-const STARTED_HIDDEN = process.argv.includes('--hidden');   // запуск вместе с Windows: сидим в трее, меню открывается по Alt+Q
+let STARTED_HIDDEN = process.argv.includes('--hidden');   // запуск вместе с Windows: сидим в трее, меню открывается по Alt+Q
 const DEBUG = false;           // true: лог и DevTools
 
+const PREFS_FILE = path.join(app.getPath('userData'), 'ui-prefs.json');
+const readPrefs = () => { try { return JSON.parse(fs.readFileSync(PREFS_FILE, 'utf8')); } catch (e) { return {}; } };
+let BLUR = process.platform === 'win32' && !!readPrefs().blur;   // размытие фона (Ультра): окно без прозрачности, фон даёт Windows 11
 let win = null;
 let tray = null;
 let visible = true;
@@ -36,12 +39,12 @@ const TOAST_ICON = { update: '⬇', role: '🛡', premium: '⭐', ban: '⛔', an
 function showToast(title, body, kind) {
   try {
     const wa = screen.getPrimaryDisplay().workArea;
-    const W = 360, H = 92, gap = 10;
-    const y = wa.y + wa.height - (H + gap) * (toasts.length + 1) - 6;
-    const tw = new BrowserWindow({ width: W, height: H, x: wa.x + wa.width - W - 14, y, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, resizable: false, hasShadow: false, webPreferences: { contextIsolation: true } });
+    const W = 388, H = 120, gap = 0;
+    const y = wa.y + wa.height - (H - 28 + 12) * (toasts.length + 1) - 6;
+    const tw = new BrowserWindow({ width: W, height: H, x: wa.x + wa.width - W - 14, y, frame: false, transparent: true, alwaysOnTop: true, skipTaskbar: true, focusable: false, show: false, resizable: true, hasShadow: false, backgroundColor: '#00000000', webPreferences: { contextIsolation: true } });
     const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const html = `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:transparent;overflow:hidden;font:13px "Segoe UI",system-ui,sans-serif;color:#fff;user-select:none;cursor:pointer}
-.c{margin:4px;height:${H - 8}px;box-sizing:border-box;display:flex;gap:12px;align-items:center;padding:0 16px;border-radius:16px;background:linear-gradient(180deg,#221f27,#16141a);border:1px solid #ff4d6d;box-shadow:0 8px 28px rgba(0,0,0,.6);animation:in .35s cubic-bezier(.2,.9,.3,1.1) both}
+.c{margin:14px;height:${H - 28}px;box-sizing:border-box;display:flex;gap:12px;align-items:center;padding:0 16px;border-radius:16px;background:linear-gradient(180deg,#221f27,#16141a);border:1px solid #ff4d6d;box-shadow:0 3px 10px rgba(0,0,0,.45);animation:in .35s cubic-bezier(.2,.9,.3,1.1) both}
 i{font-style:normal;font-size:26px}b{display:block;font-size:14px;margin-bottom:2px}span{color:#cfc8d3;font-size:12px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 @keyframes in{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}</style>
 <div class="c" onclick="document.title='click'"><i>${TOAST_ICON[kind] || TOAST_ICON.info}</i><div><b>${esc(title)}</b><span>${esc(body)}</span></div></div>`;
@@ -89,7 +92,8 @@ function createWindow() {
     ...placeWindow(),
     show: false,
     frame: false,
-    transparent: true,
+    transparent: !BLUR,
+    ...(BLUR ? { backgroundMaterial: 'acrylic' } : {}),
     resizable: true,
     alwaysOnTop: true,
     skipTaskbar: true,
@@ -99,7 +103,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      additionalArguments: BLUR ? ['--blur-mode'] : []
     }
   });
   win.setAlwaysOnTop(true, 'screen-saver');
@@ -287,8 +292,14 @@ ipcMain.handle('poker-shot', async () => {
     return { path: file };
   } catch (e) { if (win) win.setOpacity(1); log('shot error ' + e.message); return { error: 'fail' }; }
 });
-ipcMain.on('ov-blur', (_e, on) => { try { if (win && typeof win.setBackgroundMaterial === 'function') win.setBackgroundMaterial(on ? 'acrylic' : 'none'); } catch (e) { log('blur error ' + e.message); } });
-ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
+ipcMain.on('ov-blur', (_e, on) => {
+  if (!(auth.get().admin || me.tier === 'ultra')) return;   // только Ультра Премиум
+  try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), blur: !!on })); } catch (e) {}
+  BLUR = process.platform === 'win32' && !!on; STARTED_HIDDEN = false;
+  const old = win; win = null;
+  if (old) { old.removeAllListeners(); old.destroy(); }
+  createWindow();   // прозрачность окна задаётся только при создании, поэтому окно пересоздаётся
+});ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
   if (!win) return;
   const wa = screen.getPrimaryDisplay().workArea; const b = win.getBounds();
