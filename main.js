@@ -1,12 +1,12 @@
-const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
-const APP_NAME = 'Памятка семьи Polix Creator - KATO';
+const APP_NAME = 'Polix Helper';
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
-const WIDTH = 640;
-const HEIGHT_RATIO = 0.9;
+const WIDTH = 760;
+const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
 const DEBUG = false;           // true: лог и DevTools
@@ -35,8 +35,8 @@ function placeWindow() {
   }
   const h = Math.round(workArea.height * HEIGHT_RATIO), w = WIDTH;
   return {
-    x: workArea.x + workArea.width - w - 12,
-    y: workArea.y + Math.round((workArea.height - h) / 2),
+    x: workArea.x + Math.round((workArea.width - w) / 2),
+    y: workArea.y + Math.round(workArea.height * 0.12),
     width: w, height: h
   };
 }
@@ -52,7 +52,6 @@ function createWindow() {
     skipTaskbar: true,
     hasShadow: false,
     backgroundColor: '#00000000',
-    backgroundMaterial: 'acrylic',
     icon: path.join(__dirname, 'tray.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -62,11 +61,9 @@ function createWindow() {
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.setOpacity(OPACITY);
-  win.loadFile(path.join(__dirname, 'index.html'), { search: 'overlay' });
+  win.loadFile(path.join(__dirname, 'index.html'));
+  win.setIgnoreMouseEvents(true, { forward: true });
 
-  win.webContents.on('did-finish-load', () => {
-    try { win.webContents.insertCSS(fs.readFileSync(path.join(__dirname, 'overlay.css'), 'utf8')); } catch (e) { log('css ' + e.message); }
-  });
   win.webContents.on('did-fail-load', (_e, code, desc) => log(`did-fail-load ${code} ${desc}`));
   win.once('ready-to-show', () => { win.show(); visible = true; });
   if (DEBUG) win.webContents.openDevTools({ mode: 'detach' });
@@ -80,7 +77,9 @@ function createWindow() {
 
 function showWin() {
   if (!win) createWindow();
-  win.show(); win.focus(); visible = true;
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.show(); win.focus(); win.webContents.focus(); visible = true;
+  win.webContents.send('ov-show');
   updateTrayMenu();
 }
 function hideWin() {
@@ -88,7 +87,11 @@ function hideWin() {
   visible = false;
   updateTrayMenu();
 }
-function toggle() { visible ? hideWin() : showWin(); }
+function toggle() {
+  const shown = !!(win && win.isVisible());
+  log(`toggle: was ${shown ? 'visible' : 'hidden'}`);
+  shown ? hideWin() : showWin();
+}
 
 function quitApp() {
   quitting = true;
@@ -145,12 +148,23 @@ function updateTrayMenu() {
   ]));
 }
 
+ipcMain.on('ov-ignore', (_e, v) => { if (win) win.setIgnoreMouseEvents(v, { forward: true }); });
+ipcMain.on('ov-hide', () => hideWin());
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
   setupUpdater();
-  const ok = globalShortcut.register(TOGGLE_KEY, toggle);
-  log(`shortcut ${TOGGLE_KEY}: ${ok}`);
+  const keys = [TOGGLE_KEY, 'Control+Alt+Q'];
+  const regKeys = () => keys.forEach(k => {
+    if (globalShortcut.isRegistered(k)) return;
+    const ok = globalShortcut.register(k, toggle);
+    if (ok) log(`shortcut ${k}: true`);
+  });
+  regKeys();
+  log(`shortcut ${TOGGLE_KEY}: ${globalShortcut.isRegistered(TOGGLE_KEY)}`);
+  // если клавишу держала другая программа, пробуем снова
+  setInterval(regKeys, 5000);
   app.on('activate', showWin);
 }).catch(e => log('start error ' + e.stack));
 

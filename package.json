@@ -1,8 +1,9 @@
 {
   "name": "majestic-catalog-overlay",
-  "version": "1.0.0",
-  "description": "Памятка семьи Polix Creator - KATO",
+  "version": "1.2.0",
+  "description": "Polix Helper by KATO",
   "main": "main.js",
+  "author": "KATO",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win nsis --publish never",
@@ -14,7 +15,7 @@
   },
   "build": {
     "appId": "dev.majestic.catalog.overlay",
-    "productName": "Памятка семьи Polix Creator - KATO",
+    "productName": "Polix Helper",
     "directories": {
       "output": "dist"
     },
@@ -22,7 +23,7 @@
       "main.js",
       "preload.js",
       "index.html",
-      "overlay.css",
+      "data.js",
       "tray.png"
     ],
     "publish": {
@@ -41,8 +42,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Памятка семьи Polix Creator - KATO",
-      "artifactName": "PolixCreatorKATO-Setup-${version}.${ext}"
+      "shortcutName": "Polix Helper",
+      "artifactName": "PolixHelper-Setup-${version}.${ext}"
     }
   },
   "dependencies": {
