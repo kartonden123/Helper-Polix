@@ -107,6 +107,7 @@ mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 
 </div>
 <script src="data.js"></script>
 <script src="laws.js"></script>
+<script src="rules.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -141,12 +142,12 @@ function search(raw){
     items.push({a:e.a,sc});
   }
   items.sort((x,y)=>y.sc-x.sc);
-  const snips=[];
+  const snips=[];const cnt={};
   if(!isNum&&s.length>=3){
     for(const e of ENT){
       if(doc==='ДК'&&e.d.name.indexOf('Дорожный')<0)continue;
       if(doc==='УК'&&e.d.name.indexOf('Уголовный')<0)continue;
-      if(words.every(w=>e.n.includes(w))){snips.push(e);if(snips.length>=8)break;}
+      if(words.every(w=>e.n.includes(w))){const c=(cnt[e.d.name]||0);if(c<3){cnt[e.d.name]=c+1;snips.push(e);if(snips.length>=14)break;}}
     }
   }
   return{items:items.slice(0,40).map(x=>x.a),snips,words};
