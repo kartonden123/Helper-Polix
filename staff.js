@@ -181,6 +181,7 @@
   }
   function refresh() { if (window.overlay.authState) window.overlay.authState().then((s) => setTimeout(() => apply(s), 80)); }
   refresh();
+  window.PHX_refreshAuth = refresh;
   if (window.overlay.onShow) window.overlay.onShow(refresh);
   setInterval(refresh, 5 * 60 * 1000);
 })();

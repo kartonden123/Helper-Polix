@@ -126,7 +126,7 @@
     const build = (md) => {
       const who = $('#rpWho').value.trim() || '—', where = $('#rpWhere').value.trim() || '—';
       const w = Math.max(0, ...items.map((a) => a.wanted || 0)), pr = items.reduce((s, a) => s + (a.prison || 0), 0), fn = items.reduce((s, a) => s + X.fineNum(a), 0);
-      const arts = items.map((a) => `ст. ${a.code.replace('ДК ', '')} — ${a.title || a.codeTitle || ''}`).join(md ? '\n> ' : '\n');
+      const arts = items.map((a) => `ст. ${a.code.replace(/^(ДК|АК) /, '')} — ${a.title || a.codeTitle || ''}`).join(md ? '\n> ' : '\n');
       if (md) return `**Рапорт о задержании**\n**Нарушитель:** ${who}\n**Место/время:** ${where}\n**Статьи:**\n> ${arts}\n**Розыск:** ${w ? '⭐'.repeat(w) : '—'} | **Залог:** ${w ? BAIL[w] : '—'}\n**Срок:** ${pr ? 'до ' + pr + ' мес.' : '—'} | **Штраф:** ${fn ? 'до $' + fn : '—'}\n**Судимость:** ${items.some((a) => a.record) ? 'да' : 'нет'}`;
       return `РАПОРТ О ЗАДЕРЖАНИИ\nНарушитель: ${who}\nМесто/время: ${where}\nСтатьи:\n${arts}\nРозыск: ${w ? '⭐'.repeat(w) : '—'}; залог: ${w ? BAIL[w] : '—'}\nСрок: ${pr ? 'до ' + pr + ' мес.' : '—'}; штраф: ${fn ? 'до $' + fn : '—'}\nСудимость: ${items.some((a) => a.record) ? 'да' : 'нет'}`;
     };
@@ -165,16 +165,28 @@
 
   /* ===== 8. Настройки (Premium): тема, размер текста, прозрачность, положение ===== */
   function openSettings() {
-    if (!prem('Настройки', 'Тема, размер текста, прозрачность и положение окна.')) return;
     view = 'memo'; panel.classList.add('on');
     const cur = LS.get('ph_theme', 'scarlet'), zoom = LS.get('ph_zoom', 100), op = LS.get('ph_op', 100);
-    list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
+    const ver = (window.overlay && window.overlay.version) || '';
+    const premBlock = S.premium ? `
       <div class="set-row">Тема</div><div class="sw">${Object.keys(X.THEMES).map((k) => `<button class="swb${k === cur ? ' on' : ''}" data-t="${k}"><i style="background:${X.THEMES[k][0]}"></i>${X.THEMES[k][2]}</button>`).join('')}</div>
       <div class="set-row">Размер текста: <b id="zv">${zoom}%</b></div><input class="rng" id="zr" type="range" min="80" max="140" step="5" value="${zoom}">
       <div class="set-row">Прозрачность окна: <b id="ov">${op}%</b></div><input class="rng" id="or" type="range" min="40" max="100" step="5" value="${op}">
-      <div class="set-row">Положение окна</div><div class="actions"><button class="abtn" data-p="left">◀ Слева</button><button class="abtn" data-p="center">● По центру</button><button class="abtn" data-p="right">Справа ▶</button></div></div>`;
-    $('#bk').onclick = goBack; $('#cnt').textContent = '';
+      <div class="set-row">Положение окна</div><div class="actions"><button class="abtn" data-p="left">◀ Слева</button><button class="abtn" data-p="center">● По центру</button><button class="abtn" data-p="right">Справа ▶</button></div>`
+      : `<div class="set-row">Тема, размер текста, прозрачность и положение окна доступны с <b>Premium</b>.</div>`;
+    list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
+      <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · для семьи Polix</small></div></div>
+      <div class="actions"><button class="abtn" id="updChk">🔄 Проверить обновления</button></div><div class="set-row" id="updRes"></div>
+      ${premBlock}</div>`;    $('#bk').onclick = goBack; $('#cnt').textContent = '';
+    $('#updChk').onclick = async () => {
+      const r = $('#updRes'), b = $('#updChk'); b.disabled = true; r.textContent = 'Проверяю…';
+      const res = window.overlay.checkUpdate ? await window.overlay.checkUpdate() : { state: 'error' };
+      b.disabled = false;
+      const M = { latest: '✅ У вас последняя версия ' + (res.current || ver), available: '⬇ Доступна версия ' + res.version + '. Карточка с кнопкой «Скачать» вверху меню.', downloading: '⬇ Версия ' + res.version + ' скачивается…', ready: '✅ Версия ' + res.version + ' скачана. Нажмите «Установить» вверху меню.', dev: 'Режим разработки: проверка недоступна.', error: '⚠ Не удалось проверить. Проверьте интернет.' };
+      r.textContent = M[res.state] || M.error;
+    };
     list.querySelectorAll('.swb').forEach((b) => (b.onclick = () => { LS.set('ph_theme', b.dataset.t); X.applyTheme(b.dataset.t); openSettings(); }));
+    if (!S.premium) return;
     $('#zr').oninput = (e) => { LS.set('ph_zoom', +e.target.value); $('#zv').textContent = e.target.value + '%'; applyZoom(); };
     $('#or').oninput = (e) => { LS.set('ph_op', +e.target.value); $('#ov').textContent = e.target.value + '%'; applyOpacity(); };
     list.querySelectorAll('[data-p]').forEach((b) => (b.onclick = () => { LS.set('ph_pos', b.dataset.p); applyPos(); }));

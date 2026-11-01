@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, screen, Tray, Menu, nativeImage, dialog, ipcMain, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -27,6 +27,13 @@ function startDownload() {
 }
 function pushUpdate(s) { lastUpdate = s; if (win && !win.isDestroyed()) win.webContents.send('update-state', s); }
 
+app.setAppUserModelId('dev.majestic.catalog.overlay');
+// уведомление: системное (Windows) и всплывающая плашка в самом меню
+function notify(title, body, kind) {
+  try { if (Notification.isSupported()) { const n = new Notification({ title, body, icon: path.join(__dirname, 'logo.png'), silent: false }); n.on('click', () => showWin()); n.show(); } } catch (e) { log('notify error ' + e.message); }
+  if (win && !win.isDestroyed()) win.webContents.send('notice', { title, body, kind: kind || 'info' });
+}
+let notifiedUpdate = null;
 // один экземпляр: второй запуск просто показывает окно
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 app.on('second-instance', () => showWin());
@@ -134,6 +141,7 @@ function setupUpdater() {
     updateTrayMenu();
     if (declinedVersion === i.version) { pushUpdate({ type: 'none', version: i.version, later: true, avail: true }); return; }
     pushUpdate({ type: 'available', version: i.version });
+    if (notifiedUpdate !== i.version) { notifiedUpdate = i.version; notify('Доступно обновление', 'Polix Helper ' + i.version + ' готов к скачиванию. Откройте меню (Alt+Q).', 'update'); }
     showWin();
   });
   autoUpdater.on('update-not-available', () => { updateState = 'Установлена последняя версия'; updateTrayMenu(); });
@@ -146,7 +154,7 @@ function setupUpdater() {
   });
   autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
   checkUpdates();
-  setInterval(checkUpdates, 3 * 60 * 60 * 1000);
+  setInterval(checkUpdates, 10 * 60 * 1000);
 }
 function checkUpdates() {
   if (!app.isPackaged) return;
@@ -191,6 +199,18 @@ ipcMain.handle('ai-left', async () => {
   try { const r = await fetch(STATS_URL + '/ai/left', { headers: { Authorization: 'Bearer ' + t } }); return await r.json(); } catch (e) { return null; }
 });
 ipcMain.handle('update-state', () => lastUpdate);
+// ручная проверка из настроек
+ipcMain.handle('update-check', async () => {
+  if (!app.isPackaged) return { state: 'dev', current: app.getVersion() };
+  declinedVersion = null;
+  try {
+    const r = await autoUpdater.checkForUpdates();
+    const v = r && r.updateInfo && r.updateInfo.version;
+    if (v && v !== app.getVersion() && (!lastUpdate || lastUpdate.type === 'none' || !lastUpdate.type)) pushUpdate({ type: 'available', version: v });
+    const cur = lastUpdate && lastUpdate.type && lastUpdate.type !== 'none' ? lastUpdate : null;
+    return cur ? { state: cur.type, version: cur.version, current: app.getVersion() } : { state: 'latest', current: app.getVersion() };
+  } catch (e) { return { state: 'error', current: app.getVersion() }; }
+});
 ipcMain.on('update-action', (_e, a) => {
   const u = lastUpdate || {};
   if (a === 'download' && (u.type === 'available' || u.avail)) startDownload();
@@ -212,6 +232,20 @@ ipcMain.on('ov-position', (_e, side) => {
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');
 let me = { premium: false, role: '', banned: false, announce: null };
 try { me = { ...me, ...JSON.parse(fs.readFileSync(PREMIUM_FILE(), 'utf8')) }; } catch (e) {}
+let meKnown = fs.existsSync(PREMIUM_FILE());
+const RN_RU = { owner: 'Главный Администратор', admin: 'Администратор', jr: 'Мл. Администратор', mod: 'Модератор' };
+function diffMe(a, b, isOwner) {
+  if (isOwner) { if (b.announce && (!a.announce || a.announce.id !== b.announce.id)) { /* свои объявления не показываем */ } return; }
+  if (a.role !== b.role) {
+    if (b.role) notify('Вам назначена роль', RN_RU[b.role] || b.role, 'role');
+    else notify('Роль снята', 'Вы больше не ' + (RN_RU[a.role] || 'сотрудник').toLowerCase(), 'role');
+  }
+  if (!a.premium && b.premium && !b.role) notify('Вам выдан Premium', 'Открыты калькулятор дела, избранное, заметки, таймеры и настройки.', 'premium');
+  if (a.premium && !b.premium && !a.role) notify('Premium снят', 'Дополнительные функции отключены.', 'premium');
+  if (!a.banned && b.banned) notify('Доступ ограничен', 'Администратор заблокировал вам доступ к хелперу.', 'ban');
+  if (a.banned && !b.banned) notify('Доступ восстановлен', 'Блокировка снята.', 'ban');
+  if (b.announce && b.announce.text && (!a.announce || a.announce.id !== b.announce.id)) notify('Объявление', b.announce.text, 'announce');
+}
 async function refreshMe() {
   const t = auth.token();
   if (!t || !auth.get().ok) { if (!auth.get().ok) me = { premium: false, role: '', banned: false, announce: null }; return; }
@@ -219,7 +253,9 @@ async function refreshMe() {
     const r = await fetch(STATS_URL + '/me', { headers: { Authorization: 'Bearer ' + t } });
     if (r.ok) {
       const d = await r.json();
-      me = { premium: !!d.premium, role: d.role || '', banned: !!d.banned, announce: d.announce || null };
+      const nm = { premium: !!d.premium, role: d.role || '', banned: !!d.banned, announce: d.announce || null };
+      if (meKnown) diffMe(me, nm, !!d.admin);
+      meKnown = true; me = nm;
       try { fs.writeFileSync(PREMIUM_FILE(), JSON.stringify(me)); } catch (e) {}
     }
   } catch (e) { log('me error ' + e.message); }
@@ -287,6 +323,8 @@ app.whenReady().then(async () => {
   setInterval(recheckAuth, 3 * 60 * 60 * 1000);
   ping();
   setInterval(ping, 20 * 60 * 1000);
+  setTimeout(refreshMe, 20000);
+  setInterval(refreshMe, 3 * 60 * 1000);
   createTray();
   setupUpdater();
   const keys = [TOGGLE_KEY, 'Control+Alt+Q'];

@@ -89,12 +89,12 @@ mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 
 </style></head>
 <body>
 <div id="ui">
-  <div class="brand">Polix <span style="color:var(--accent)">Helper</span></div><div class="by">By <b>KATO</b></div>
+  
   <div class="tab" id="tabhint">Alt+Q — показать / скрыть · <b>Esc</b> — назад</div>
   <div class="bar" id="bar">
     <img class="logo" src="logo.png" alt="">
     <input id="q" placeholder="Статья или номер" autocomplete="off" spellcheck="false">
-    <div class="seg" id="seg"><button data-d="all" class="on">Все</button><button data-d="УК">УК</button><button data-d="ДК">ДК</button></div>
+    <div class="seg" id="seg"><button data-d="all" class="on">Все</button><button data-d="УК">УК</button><button data-d="ДК">ДК</button><button data-d="АК">АК</button></div>
     <button class="ib" id="admBtn" title="Админ-панель" style="display:none">👑</button>
     <button class="ib" id="immBtn" title="Неприкосновенные лица">🛡</button>
     <button class="ib" id="memoBtn" title="Памятка">📖</button>
@@ -106,7 +106,7 @@ mark{background:rgba(var(--acc-rgb),.28);color:#fff;border-radius:3px;padding:0 
   </div>
 </div>
 <script src="data.js"></script>
-<script src="laws.js"></script>
+<script src="ak.js"></script>
 <script src="rules.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -114,8 +114,8 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",
 const norm=s=>String(s||'').toLowerCase().replace(/ё/g,'е');
 const hl=t=>esc(t).replace(/(\d[\d.,]*\d|\d)(\s?\$|\s?месяц\w*|\s?дн\w*|\s?мин\w*)?/g,m=>`<span class="hl">${m}</span>`);
 const stars=w=>w?'⭐'.repeat(w):'';
-const shortCode=a=>a.code.replace('ДК ','');
-const IDX=ITEMS.map(a=>({a,code:norm(a.code.replace('ДК ','')),title:norm((a.title||'')+' '+(a.codeTitle||'')),text:norm(a.text)}));
+const shortCode=a=>a.code.replace(/^(ДК|АК) /,'');
+const IDX=ITEMS.map(a=>({a,code:norm(a.code.replace(/^(ДК|АК) /,'')),title:norm((a.title||'')+' '+(a.codeTitle||'')),text:norm(a.text)}));
 const ENT=[];DOCS.forEach(d=>d.paras.forEach(p=>{if(p.length>25)ENT.push({d,p,n:norm(p)});}));
 
 let doc='all',view='home',results=[],sel=0,last=null;
@@ -126,13 +126,39 @@ function mark(text,words){
   words.forEach(w=>{if(w.length<2)return;t=t.replace(new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),s=>`<mark>${s}</mark>`);});
   return t;
 }
+const ALIAS={'пго':'Правила государственных','осн':'Основные правила','основные':'Основные правила','пп':'Основные правила','ук':'Уголовный','дк':'Дорожный','ак':'Административный','пк':'Процессуальный','тк':'Трудовой','кэ':'Кодекс этики','лспд':'LSPD','lspd':'LSPD','фиб':'FIB','fib':'FIB','шериф':'Sheriff','шерифф':'Sheriff','lscsd':'Sheriff','sheriff':'Sheriff','санг':'San-Andreas','sang':'San-Andreas','ems':'EMS','емс':'EMS','прокуратура':'Прокуратуры','военное':'военного','ограбления':'ограблений','банки':'банков','бизнесы':'бизнесов','семьи':'семейных'};
+const ALIAS_SEG={'ук':1,'дк':1,'ак':1};
 function search(raw){
-  const s=norm(raw.trim());if(!s)return{items:[],snips:[],words:[]};
+  let s=norm(raw.trim());if(!s)return{items:[],snips:[],words:[]};let dsel=doc;
+  const tk=s.split(/\s+/);let dn=null,aliasTok=null;const nums=[],rest=[];
+  for(let t of tk){
+    t=t.replace(/^(п|ст|пп)\.?(?=\d)/,'');
+    if(/^(п|пункт|ст|статья|пп)\.?$/.test(t)&&tk.length>1&&t!=='пп'){continue;}
+    if(ALIAS[t]&&!dn){dn=ALIAS[t];aliasTok=t;}
+    else if(/^\d+(\.\d+)+\.?$/.test(t)||(/^\d+$/.test(t)&&tk.length>1))nums.push(t.replace(/\.$/,''));
+    else rest.push(t);
+  }
+  if(dn&&(nums.length||rest.length||true)&&(tk.length>1)){
+    const hit=e=>e.d.name.indexOf(dn)>=0;
+    if(nums.length){
+      const res=new RegExp('^'+nums[0].replace(/\./g,'\\.')+'(?![\\d])');
+      const pin=ENT.filter(e=>hit(e)&&res.test(e.p));
+      let items=[];
+      if(ALIAS_SEG[aliasTok])items=IDX.filter(e=>e.a.doc===aliasTok.toUpperCase()&&e.code===nums[0]).map(e=>e.a);
+      if(pin.length||items.length)return{items,snips:pin.slice(0,8),words:[]};
+    }else if(!ALIAS_SEG[aliasTok]){
+      const ws=rest.map(w=>w.length<5?w:w.slice(0,w.length-2));
+      const sn=ENT.filter(e=>hit(e)&&ws.every(w=>e.n.includes(w))).slice(0,14);
+      if(sn.length)return{items:[],snips:sn,words:ws};
+    }else{
+      s=rest.join(' ');if(!s)return{items:[],snips:[],words:[]};dsel=aliasTok.toUpperCase();
+    }
+  }
   const words=s.split(/\s+/).filter(Boolean).map(w=>/^[\d.]+$/.test(w)||w.length<5?w:w.slice(0,w.length-2));
   const isNum=/^[\d.]+$/.test(s);
   const items=[];
   for(const e of IDX){
-    if(doc!=='all'&&e.a.doc!==doc)continue;
+    if(dsel!=='all'&&e.a.doc!==dsel)continue;
     let sc=0;
     if(isNum){if(e.code===s)sc=100;else if(e.code.startsWith(s))sc=60-Math.min(e.code.length,30);else continue;}
     else{
@@ -145,8 +171,9 @@ function search(raw){
   const snips=[];const cnt={};
   if(!isNum&&s.length>=3){
     for(const e of ENT){
-      if(doc==='ДК'&&e.d.name.indexOf('Дорожный')<0)continue;
-      if(doc==='УК'&&e.d.name.indexOf('Уголовный')<0)continue;
+      if(dsel==='ДК'&&e.d.name.indexOf('Дорожный')<0)continue;
+      if(dsel==='УК'&&e.d.name.indexOf('Уголовный')<0)continue;
+      if(dsel==='АК'&&e.d.name.indexOf('Административный')<0)continue;
       if(words.every(w=>e.n.includes(w))){const c=(cnt[e.d.name]||0);if(c<3){cnt[e.d.name]=c+1;snips.push(e);if(snips.length>=14)break;}}
     }
   }
@@ -183,7 +210,7 @@ function openArt(a){
   const note=a.doc==='УК'?(a.record?'<div class="note r">Судимость: да. Розыск 4 и выше даёт запись о судимости.</div>':`<div class="note">Судимость: нет (розыск ${a.wanted||'—'}).</div>`):'';
   const imm=IMMUNE_ARTS.includes(a.code)?'<div class="note s">🛡 По этой статье неприкосновенность снимается: лицо можно задержать.</div>':'';
   panel.classList.add('on');
-  list.innerHTML=backBtn()+`<div class="det"><h2>${a.doc==='УК'?'Статья':'ДК'} ${esc(shortCode(a))}${a.flags?' <span>('+esc(a.flags)+')</span>':''}</h2><p class="t">${esc(a.title||a.codeTitle||'')}</p>
+  list.innerHTML=backBtn()+`<div class="det"><h2>${a.doc==='УК'?'Статья':a.doc} ${esc(shortCode(a))}${a.flags?' <span>('+esc(a.flags)+')</span>':''}</h2><p class="t">${esc(a.title||a.codeTitle||'')}</p>
   <div class="stats"><div><small>Розыск</small><b>${a.wanted?stars(a.wanted):'—'}</b></div><div><small>Тюрьма</small><b>${a.prison?a.prison+' мес.':'—'}</b></div><div><small>Залог</small><b>${a.wanted?BAIL[a.wanted]:'—'}</b></div><div><small>Штраф</small><b>${a.fine?'до $'+esc(a.fine.replace(/\D/g,'')):'—'}</b></div></div>
   ${note}${imm}<div class="txt">${hl(a.text||'Текст не загружен')}</div></div>`;
   $('#bk').onclick=goBack;$('#cnt').textContent='';
@@ -278,4 +305,5 @@ if(window.overlay&&window.overlay.resize){
 <script src="staff.js"></script>
 <script src="anim.js"></script>
 <script src="updater-ui.js"></script>
+<script src="notice.js"></script>
 </body></html>

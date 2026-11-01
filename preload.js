@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('overlay', {
-  version: '2.0.0',
+  version: '2.1.0',
+  checkUpdate: () => ipcRenderer.invoke('update-check'),
+  onNotice: (cb) => ipcRenderer.on('notice', (_e, n) => cb(n)),
   ignore: (v) => ipcRenderer.send('ov-ignore', !!v),
   hide: () => ipcRenderer.send('ov-hide'),
   resize: (h) => ipcRenderer.send('ov-resize', h),
