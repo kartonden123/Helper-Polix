@@ -7,7 +7,7 @@ const auth = require('./auth');
 const APP_NAME = 'Polix Helper';
 const STATS_URL = 'https://polix-helper-stats.kartonden123.workers.dev';   // сервер статистики (Cloudflare Worker)
 const OPACITY = 1;             // полная непрозрачность окна: фон сайта не просвечивает
-const WIDTH = 760;
+const WIDTH = 840;
 const HEIGHT_RATIO = 0.75;
 const SIDE = 'right';          // 'right' или 'top'
 const TOGGLE_KEY = 'Alt+Q';
@@ -18,6 +18,8 @@ let tray = null;
 let visible = true;
 let quitting = false;
 let updateState = 'Обновления: не проверялись';
+let lastUpdate = null;
+function pushUpdate(s) { lastUpdate = s; if (win && !win.isDestroyed()) win.webContents.send('update-state', s); }
 
 // один экземпляр: второй запуск просто показывает окно
 if (!app.requestSingleInstanceLock()) { app.quit(); }
@@ -121,17 +123,14 @@ function setupUpdater() {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
   autoUpdater.on('checking-for-update', () => { updateState = 'Проверка обновлений…'; updateTrayMenu(); });
-  autoUpdater.on('update-available', (i) => { updateState = `Скачивается версия ${i.version}…`; updateTrayMenu(); });
+  autoUpdater.on('update-available', (i) => { updateState = `Скачивается версия ${i.version}…`; pushUpdate({ type: 'downloading', version: i.version, percent: 0 }); updateTrayMenu(); });
   autoUpdater.on('update-not-available', () => { updateState = 'Установлена последняя версия'; updateTrayMenu(); });
-  autoUpdater.on('download-progress', (p) => { updateState = `Скачивание: ${Math.round(p.percent)}%`; updateTrayMenu(); });
+  autoUpdater.on('download-progress', (p) => { updateState = `Скачивание: ${Math.round(p.percent)}%`; pushUpdate({ type: 'downloading', version: (lastUpdate && lastUpdate.version) || '', percent: p.percent }); updateTrayMenu(); });
   autoUpdater.on('update-downloaded', (i) => {
     updateState = `Версия ${i.version} готова`;
+    pushUpdate({ type: 'ready', version: i.version });
     updateTrayMenu();
-    dialog.showMessageBox({
-      type: 'info', buttons: ['Перезапустить сейчас', 'Позже'], defaultId: 0,
-      title: APP_NAME, message: `Доступна версия ${i.version}`,
-      detail: 'Перезапустить программу, чтобы установить обновление?'
-    }).then(r => { if (r.response === 0) { quitting = true; autoUpdater.quitAndInstall(); } });
+    showWin();
   });
   autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
   checkUpdates();
@@ -148,6 +147,7 @@ function updateTrayMenu() {
     { label: visible ? 'Скрыть' : 'Показать', click: toggle },
     { label: `Горячая клавиша: Alt+Q`, enabled: false },
     { label: updateState, enabled: false },
+    ...(lastUpdate && (lastUpdate.type === 'ready' || lastUpdate.later) ? [{ label: 'Установить обновление ' + lastUpdate.version, click: () => { quitting = true; autoUpdater.quitAndInstall(); } }] : []),
     { label: 'Проверить обновления', click: checkUpdates },
     { type: 'separator' },
     { label: 'Выйти из Discord', click: () => { auth.logout(); loadContent(); showWin(); } },
@@ -162,6 +162,11 @@ ipcMain.on('ov-resize', (_e, h) => {
   win.setContentSize(w, Math.min(Math.max(Math.round(h), 80), max));
 });
 ipcMain.on('ov-hide', () => hideWin());
+ipcMain.handle('update-state', () => lastUpdate);
+ipcMain.on('update-action', (_e, a) => {
+  if (a === 'install' && lastUpdate && lastUpdate.type === 'ready') { quitting = true; autoUpdater.quitAndInstall(); }
+  else if (a === 'later') { pushUpdate(lastUpdate && lastUpdate.type === 'ready' ? { type: 'none', version: lastUpdate.version, later: true } : null); updateTrayMenu(); }
+});
 ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
   if (!win) return;
