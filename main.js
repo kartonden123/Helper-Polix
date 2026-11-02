@@ -135,7 +135,21 @@ async function captureBg() {
   const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(sz.width / k), height: Math.round(sz.height / k) } });
   const src = srcs.find((s) => String(s.display_id) === String(d.id)) || srcs[0];
   if (!src || src.thumbnail.isEmpty()) return null;
-  return { img: 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(72).toString('base64'), sw: sz.width, sh: sz.height, dx: d.bounds.x, dy: d.bounds.y, b: win.getBounds() };
+  return { img: 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(62).toString('base64'), sw: sz.width, sh: sz.height, dx: d.bounds.x, dy: d.bounds.y, b: win.getBounds() };
+}
+// живое размытие: пока меню открыто, снимок экрана обновляется несколько раз в секунду; само окно из снимка исключено (защита содержимого)
+let snapTimer = null;
+function stopSnap() { clearTimeout(snapTimer); snapTimer = null; try { if (win && !win.isDestroyed()) win.setContentProtection(false); } catch (e) {} }
+function startSnap() {
+  clearTimeout(snapTimer);
+  if (!win || win.isDestroyed()) return;
+  try { win.setContentProtection(true); } catch (e) {}
+  const tick = async () => {
+    if (!win || win.isDestroyed() || !win.isVisible() || !snapOn()) { snapTimer = null; return; }
+    try { const bg = await captureBg(); if (bg && win && !win.isDestroyed() && win.isVisible()) win.webContents.send('ov-bg', bg); } catch (e) {}
+    snapTimer = setTimeout(tick, 110);
+  };
+  snapTimer = setTimeout(tick, 120);
 }
 function showWin() {
   if (!win) createWindow();
@@ -148,12 +162,15 @@ function showWin() {
     win.webContents.send('ov-bg', bg || null);
     win.show(); win.focus(); win.webContents.focus(); visible = true;
     win.webContents.send('ov-show');
+    if (snapOn()) startSnap();
     if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
     updateTrayMenu();
   };
+  if (snapOn()) { try { win.setContentProtection(true); } catch (e) {} }
   if (!was && snapOn()) Promise.race([captureBg(), new Promise((r) => setTimeout(() => r(null), 700))]).then(go, () => go(null));
   else go(null);
 }function hideWin() {
+  stopSnap();
   if (win) win.hide();
   visible = false;
   updateTrayMenu();
@@ -311,12 +328,12 @@ ipcMain.on('ov-blur', async (_e, on) => {
   if (!snapAllowed()) return;   // только Ультра Премиум
   try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), snap: !!on })); } catch (e) {}
   if (!win) return;
-  if (!on) { win.webContents.send('ov-bg', null); return; }
-  try { win.setOpacity(0); await new Promise((r) => setTimeout(r, 160)); const bg = await captureBg(); win.setOpacity(1); win.webContents.send('ov-bg', bg); } catch (e) { win.setOpacity(1); }
+  if (!on) { stopSnap(); win.webContents.send('ov-bg', null); return; }
+  startSnap();
 });
 ipcMain.handle('ui-prefs', () => ({ snap: snapOn(), autohide: !!readPrefs().autohide }));
 ipcMain.on('ov-autohide', (_e, on) => { try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), autohide: !!on })); } catch (e) {} });
-pcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
+ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
   if (!win) return;
   const wa = screen.getPrimaryDisplay().workArea; const b = win.getBounds();

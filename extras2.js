@@ -181,7 +181,7 @@
       <div class="set-sec">💎 Ультра Премиум</div>
       <div class="actions"><button class="abtn${blurOn ? ' on' : ''}" id="blurWin">${blurOn ? '✔ Размытие фона' : '🌫 Размытие фона'}</button><button class="abtn${neon ? ' on' : ''}" id="blurBtn">${neon ? '✔ Неоновая рамка' : '✨ Неоновая рамка'}</button></div>
       <div class="set-row">Свой цвет оформления <input type="color" id="accPick" value="${esc(acc)}" style="vertical-align:middle;margin-left:8px;width:42px;height:26px;border:0;background:none;cursor:pointer"> <button class="mini" id="accOn">${LS.get('ph_accOn', false) ? '✔ включён' : 'применить'}</button></div>
-      <div class="set-row"><small>Размытие берётся со снимка экрана в момент открытия меню. ИИ: 10 вопросов в день.</small></div>`
+      <div class="set-row"><small>Размытие живое: фон под плашками обновляется несколько раз в секунду (в записи и трансляции экрана меню при этом не видно). ИИ: 10 вопросов в день.</small></div>`
       : (S.premium ? lock('Ультра Премиум: неоновая рамка, свой цвет, ИИ на 10 вопросов в день. Выдаёт администрация.') : '');
     list.innerHTML = backBtn() + `<div class="det"><h2>⚙ Настройки</h2>
       <div class="about"><img src="logo.png" alt=""><div><b>Polix Helper <span style="color:var(--accent)">by KATO</span></b><small>Версия ${esc(ver)} · ${esc(tierName)}</small></div></div>
