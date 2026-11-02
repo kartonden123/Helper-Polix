@@ -40,21 +40,24 @@
     const wasOn = el.classList.contains('on');
     if (s.type === 'available') {
       el.dataset.t = 'a';
-      el.innerHTML = `<span class="uic">✨</span><div class="utx"><b>Вышла новая версия ${esc(s.version || '')}</b><small>Скачать обновление? Это займёт меньше минуты.</small></div><button class="ubtn later" id="updLater">Позже</button><button class="ubtn go" id="updGo">Скачать</button>`;
+      el.innerHTML = `<span class="uic">✨</span><div class="utx"><b>Вышла новая версия ${esc(s.version || '')}</b><small>Обновить сейчас? Хелпер сам скачает, установит и перезапустится.</small></div><button class="ubtn later" id="updLater">Позже</button><button class="ubtn go" id="updGo">Обновить</button>`;
       el.classList.add('shine');
       el.querySelector('#updGo').onclick = () => { window.overlay.updateAction('download'); };
       el.querySelector('#updLater').onclick = () => { window.overlay.updateAction('later'); show({ type: 'none' }); };
     } else    if (s.type === 'downloading') {
       const p = Math.max(0, Math.min(100, Math.round(s.percent || 0)));
       if (!el.querySelector('.bar2') || el.dataset.t !== 'd') {
-        el.innerHTML = `<span class="uic">⬇</span><div class="utx"><b>Скачиваю обновление ${esc(s.version || '')}</b><small id="updPct">${p}%</small></div><div class="bar2" id="updBar"></div>`;
+        el.innerHTML = `<span class="uic">⬇</span><div class="utx"><b>Обновляю до ${esc(s.version || '')}</b><small id="updPct">${p}%</small></div><div class="bar2" id="updBar"></div>`;
         el.dataset.t = 'd';
       }
       const bar = el.querySelector('#updBar'); if (bar) bar.style.width = p + '%';
       const pc = el.querySelector('#updPct'); if (pc) pc.textContent = p + '%';
+    } else if (s.type === 'installing') {
+      el.dataset.t = 'i';
+      el.innerHTML = '<span class="uic">🔄</span><div class="utx"><b>Устанавливаю версию ' + esc(s.version || '') + '</b><small>Хелпер сейчас перезапустится сам…</small></div><div class="bar2" style="width:100%"></div>';
     } else if (s.type === 'ready') {
       el.dataset.t = 'r';
-      el.innerHTML = `<span class="uic">🚀</span><div class="utx"><b>Доступна версия ${esc(s.version || '')}</b><small>Установить сейчас? Программа перезапустится за пару секунд.</small></div><button class="ubtn later" id="updLater">Позже</button><button class="ubtn go" id="updGo">Установить</button>`;
+      el.innerHTML = `<span class="uic">🚀</span><div class="utx"><b>Доступна версия ${esc(s.version || '')}</b><small>Перезапустить и установить? Это займёт пару секунд.</small></div><button class="ubtn later" id="updLater">Позже</button><button class="ubtn go" id="updGo">Перезапустить</button>`;
       el.classList.add('shine');
       el.querySelector('#updGo').onclick = () => { el.querySelector('#updGo').textContent = 'Устанавливаю…'; window.overlay.updateAction('install'); };
       el.querySelector('#updLater').onclick = () => { window.overlay.updateAction('later'); show({ type: 'none' }); };

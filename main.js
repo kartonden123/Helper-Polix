@@ -24,7 +24,10 @@ let quitting = false;
 let updateState = 'Обновления: не проверялись';
 let lastUpdate = null;
 let declinedVersion = null;
+let autoInstall = false;   // «Обновить» из меню: скачать и сразу установить с перезапуском, как в Discord
+function installNow() { quitting = true; try { autoUpdater.quitAndInstall(true, true); } catch (e) { log('install error ' + e.message); quitting = false; } }   // тихая установка + запуск после неё
 function startDownload() {
+  autoInstall = true;
   const v = (lastUpdate && lastUpdate.version) || '';
   pushUpdate({ type: 'downloading', version: v, percent: 0 });
   autoUpdater.downloadUpdate().catch(e => { log('download error ' + e.message); pushUpdate({ type: 'available', version: v }); });
@@ -200,12 +203,12 @@ function setupUpdater() {
   autoUpdater.on('update-not-available', () => { updateState = 'Установлена последняя версия'; updateTrayMenu(); });
   autoUpdater.on('download-progress', (p) => { updateState = `Скачивание: ${Math.round(p.percent)}%`; pushUpdate({ type: 'downloading', version: (lastUpdate && lastUpdate.version) || '', percent: p.percent }); updateTrayMenu(); });
   autoUpdater.on('update-downloaded', (i) => {
-    updateState = `Версия ${i.version} готова`;
-    pushUpdate({ type: 'ready', version: i.version });
+    updateState = 'Версия ' + i.version + ' готова';
     updateTrayMenu();
+    if (autoInstall) { pushUpdate({ type: 'installing', version: i.version }); showWin(); setTimeout(installNow, 1200); return; }
+    pushUpdate({ type: 'ready', version: i.version });
     showWin();
-  });
-  autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
+  });  autoUpdater.on('error', (e) => { updateState = 'Ошибка обновления'; log('updater error ' + e.message); updateTrayMenu(); });
   checkUpdates();
   setInterval(checkUpdates, 10 * 60 * 1000);
   setInterval(watchRelease, 45 * 1000);
@@ -235,7 +238,7 @@ function updateTrayMenu() {
     { label: `Горячая клавиша: Alt+Q`, enabled: false },
     { label: updateState, enabled: false },
     ...(lastUpdate && lastUpdate.later && lastUpdate.avail ? [{ label: 'Скачать обновление ' + lastUpdate.version, click: () => startDownload() }] : []),
-    ...(lastUpdate && lastUpdate.later && !lastUpdate.avail ? [{ label: 'Установить обновление ' + lastUpdate.version, click: () => { quitting = true; autoUpdater.quitAndInstall(); } }] : []),
+    ...(lastUpdate && lastUpdate.later && !lastUpdate.avail ? [{ label: 'Установить обновление ' + lastUpdate.version, click: () => installNow() }] : []),
     { label: 'Проверить обновления', click: checkUpdates },
     { type: 'separator' },
     { label: 'Выйти из Discord', click: () => { auth.logout(); loadContent(); showWin(); } },
@@ -282,7 +285,7 @@ ipcMain.handle('update-check', async () => {
 ipcMain.on('update-action', (_e, a) => {
   const u = lastUpdate || {};
   if (a === 'download' && (u.type === 'available' || u.avail)) startDownload();
-  else if (a === 'install' && u.type === 'ready') { quitting = true; autoUpdater.quitAndInstall(); }
+  else if (a === 'install' && u.type === 'ready') { pushUpdate({ type: 'installing', version: u.version }); setTimeout(installNow, 600); }
   else if (a === 'later') {
     if (u.type === 'available') { declinedVersion = u.version; pushUpdate({ type: 'none', version: u.version, later: true, avail: true }); }
     else if (u.type === 'ready') pushUpdate({ type: 'none', version: u.version, later: true });

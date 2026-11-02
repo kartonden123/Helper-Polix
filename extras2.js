@@ -194,7 +194,7 @@
       const r = $('#updRes'), b = $('#updChk'); b.disabled = true; r.textContent = 'Проверяю…';
       const res = window.overlay.checkUpdate ? await window.overlay.checkUpdate() : { state: 'error' };
       b.disabled = false;
-      const M = { latest: '✅ У вас последняя версия ' + (res.current || ver), available: '⬇ Доступна версия ' + res.version + '. Карточка с кнопкой «Скачать» вверху меню.', downloading: '⬇ Версия ' + res.version + ' скачивается…', ready: '✅ Версия ' + res.version + ' скачана. Нажмите «Установить» вверху меню.', dev: 'Режим разработки: проверка недоступна.', error: '⚠ Не удалось проверить. Проверьте интернет.' };
+      const M = { latest: '✅ У вас последняя версия ' + (res.current || ver), available: '⬇ Доступна версия ' + res.version + '. Нажмите «Обновить» в карточке вверху меню: хелпер сам скачает, установит и перезапустится.', downloading: '⬇ Версия ' + res.version + ' скачивается…', ready: '✅ Версия ' + res.version + ' скачана. Нажмите «Перезапустить» вверху меню.', dev: 'Режим разработки: проверка недоступна.', error: '⚠ Не удалось проверить. Проверьте интернет.' };
       r.textContent = M[res.state] || M.error;
     };
     $('#ahBtn').onclick = () => { const on = !LS.get('ph_autohide', false); LS.set('ph_autohide', on); if (window.overlay.setAutohide) window.overlay.setAutohide(on); openSettings(); };
