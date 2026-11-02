@@ -118,7 +118,7 @@ function createWindow() {
     if (!quitting) { e.preventDefault(); hideWin(); }
   });
   win.on('blur', () => { if (readPrefs().autohide && win && !win.isDestroyed() && win.isVisible() && !quitting) setTimeout(() => { if (win && !win.isDestroyed() && !win.isFocused()) hideWin(); }, 150); });
-  win.on('moved', () => { if (win && !win.isDestroyed()) win.webContents.send('ov-bounds', win.getBounds()); });
+  win.on('moved', () => { if (win && !win.isDestroyed()) snapInfo().then((i) => { if (i && win && !win.isDestroyed()) win.webContents.send('ov-bounds', i); }); });
   win.on('closed', () => { win = null; });
 }
 
@@ -129,53 +129,39 @@ function loadContent() {
 
 const snapAllowed = () => !!(auth.get().ok && (auth.get().admin || me.tier === 'ultra'));
 const snapOn = () => !!readPrefs().snap && snapAllowed();
-async function captureBg() {
-  const d = screen.getDisplayNearestPoint({ x: win.getBounds().x + 40, y: win.getBounds().y + 40 });
-  const k = 3, sz = d.size;
-  const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: Math.round(sz.width / k), height: Math.round(sz.height / k) } });
-  const src = srcs.find((s) => String(s.display_id) === String(d.id)) || srcs[0];
-  if (!src || src.thumbnail.isEmpty()) return null;
-  return { img: 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(62).toString('base64'), sw: sz.width, sh: sz.height, dx: d.bounds.x, dy: d.bounds.y, b: win.getBounds() };
+// Живое размытие: само меню получает видеопоток экрана (как демонстрация экрана) и рисует его под плашками на GPU.
+// Окно хелпера исключено из захвата (защита содержимого), поэтому оно не размывает само себя.
+let screenIds = {};
+async function snapInfo() {
+  if (!win || win.isDestroyed()) return null;
+  const b = win.getBounds();
+  const d = screen.getDisplayNearestPoint({ x: b.x + 40, y: b.y + 40 });
+  if (!screenIds[d.id]) {
+    // перечисление экранов у Windows медленное (около 2 секунд), поэтому делаем один раз и запоминаем
+    const srcs = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 }, fetchWindowIcons: false });
+    const src = srcs.find((s) => String(s.display_id) === String(d.id)) || srcs[0];
+    screenIds[d.id] = src && src.id;
+  }
+  return { id: screenIds[d.id] || null, b, disp: d.bounds };
 }
-// живое размытие: пока меню открыто, снимок экрана обновляется несколько раз в секунду; само окно из снимка исключено (защита содержимого)
-let snapTimer = null;
-function stopSnap() { clearTimeout(snapTimer); snapTimer = null; try { if (win && !win.isDestroyed()) win.setContentProtection(false); } catch (e) {} }
-function startSnap() {
-  clearTimeout(snapTimer);
-  if (!win || win.isDestroyed()) return;
-  try { win.setContentProtection(true); } catch (e) {}
-  const tick = async () => {
-    if (!win || win.isDestroyed() || !win.isVisible() || !snapOn()) { snapTimer = null; return; }
-    try { const bg = await captureBg(); if (bg && win && !win.isDestroyed() && win.isVisible()) win.webContents.send('ov-bg', bg); } catch (e) {}
-    snapTimer = setTimeout(tick, 110);
-  };
-  snapTimer = setTimeout(tick, 120);
-}
+function applyProtection() { try { if (win && !win.isDestroyed()) win.setContentProtection(snapOn()); } catch (e) {} }
 function showWin() {
   if (!win) createWindow();
   const was = win.isVisible();
-  const go = (bg) => {
-    if (!win || win.isDestroyed()) return;
-    win.setAlwaysOnTop(true, 'screen-saver');
-    // окно показываем невидимым: меню сначала сбрасывает состояние и подгоняет размер, потом плавно проявляется (без «прыжка» старого кадра)
-    if (!was) win.setOpacity(0);
-    win.webContents.send('ov-bg', bg || null);
-    win.show(); win.focus(); win.webContents.focus(); visible = true;
-    win.webContents.send('ov-show');
-    if (snapOn()) startSnap();
-    if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
-    updateTrayMenu();
-  };
-  if (snapOn()) { try { win.setContentProtection(true); } catch (e) {} }
-  if (!was && snapOn()) Promise.race([captureBg(), new Promise((r) => setTimeout(() => r(null), 700))]).then(go, () => go(null));
-  else go(null);
-}function hideWin() {
-  stopSnap();
+  win.setAlwaysOnTop(true, 'screen-saver');
+  // окно показываем невидимым: меню сначала сбрасывает состояние и подгоняет размер, потом плавно проявляется (без «прыжка» старого кадра)
+  if (!was) win.setOpacity(0);
+  applyProtection();
+  win.show(); win.focus(); win.webContents.focus(); visible = true;
+  win.webContents.send('ov-show');
+  if (!was) setTimeout(() => { if (win && !win.isDestroyed()) win.setOpacity(1); }, 300);
+  updateTrayMenu();
+}
+function hideWin() {
   if (win) win.hide();
   visible = false;
   updateTrayMenu();
-}
-function toggle() {
+}function toggle() {
   const shown = !!(win && win.isVisible());
   log(`toggle: was ${shown ? 'visible' : 'hidden'}`);
   shown ? hideWin() : showWin();
@@ -324,14 +310,13 @@ ipcMain.handle('poker-shot', async () => {
     return { path: file };
   } catch (e) { if (win) win.setOpacity(1); log('shot error ' + e.message); return { error: 'fail' }; }
 });
-ipcMain.on('ov-blur', async (_e, on) => {
+ipcMain.on('ov-blur', (_e, on) => {
   if (!snapAllowed()) return;   // только Ультра Премиум
   try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), snap: !!on })); } catch (e) {}
-  if (!win) return;
-  if (!on) { stopSnap(); win.webContents.send('ov-bg', null); return; }
-  startSnap();
+  applyProtection();
+  if (win && !win.isDestroyed()) win.webContents.send('snap-changed', !!on);
 });
-ipcMain.handle('ui-prefs', () => ({ snap: snapOn(), autohide: !!readPrefs().autohide }));
+ipcMain.handle('snap-info', () => snapInfo());ipcMain.handle('ui-prefs', () => ({ snap: snapOn(), autohide: !!readPrefs().autohide }));
 ipcMain.on('ov-autohide', (_e, on) => { try { fs.writeFileSync(PREFS_FILE, JSON.stringify({ ...readPrefs(), autohide: !!on })); } catch (e) {} });
 ipcMain.on('ov-opacity', (_e, v) => { if (win && v >= 0.3 && v <= 1) win.setOpacity(v); });
 ipcMain.on('ov-position', (_e, side) => {
@@ -339,6 +324,7 @@ ipcMain.on('ov-position', (_e, side) => {
   const wa = screen.getPrimaryDisplay().workArea; const b = win.getBounds();
   const x = side === 'left' ? wa.x + 12 : side === 'right' ? wa.x + wa.width - b.width - 12 : wa.x + Math.round((wa.width - b.width) / 2);
   win.setPosition(x, b.y);
+  snapInfo().then((i) => { if (i && win && !win.isDestroyed()) win.webContents.send('ov-bounds', i); });
 });
 // Premium: статус приходит с сервера (у автора всегда включён), последний ответ хранится на случай отсутствия сети
 const PREMIUM_FILE = () => path.join(app.getPath('userData'), 'premium.json');

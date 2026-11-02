@@ -47,38 +47,58 @@
   /* ---- размытие фона под плашками ---- */
   .bar,.panel{position:relative;isolation:isolate}
   .gl{position:absolute;inset:0;z-index:-1;border-radius:inherit;overflow:hidden;pointer-events:none}
-  .gl img{position:absolute;max-width:none;filter:blur(16px) saturate(1.35) brightness(.78)}
+  .gl canvas{position:absolute;inset:0;width:100%;height:100%;filter:blur(7px) saturate(1.35) brightness(.78);transform:scale(1.08)}
   .gl::after{content:"";position:absolute;inset:0;background:rgba(22,19,26,.5)}
   .snap .bar,.snap .panel{background:transparent!important}
   `;
   document.head.appendChild(css);
 
-  /* ---- снимок экрана -> размытый фон только внутри плашек ---- */
+  /* ---- живое размытие: видеопоток экрана рисуется под плашками (GPU), окно хелпера из потока исключено ---- */
   const root = document.documentElement;
-  let bg = null;
+  let snap = false, info = null, stream = null, vid = null;
   const plates = () => [...document.querySelectorAll('.bar,.panel')];
-  function layout() {
-    if (!bg) { root.classList.remove('snap'); plates().forEach((p) => { const g = p.querySelector(':scope>.gl'); if (g) g.remove(); }); return; }
-    root.classList.add('snap');
+  function ensureCanvases() {
     plates().forEach((p) => {
-      const r = p.getBoundingClientRect(); if (!r.width) return;
       let g = p.querySelector(':scope>.gl');
-      if (!g) { g = document.createElement('div'); g.className = 'gl'; g.innerHTML = '<img alt="">'; p.prepend(g); }
-      const img = g.firstChild; if (img.dataset.s !== bg.img.length + ':' + bg.img.slice(-24)) { img.src = bg.img; img.dataset.s = bg.img.length + ':' + bg.img.slice(-24); }
-      const z = p.offsetWidth ? r.width / p.offsetWidth : 1;
-      img.style.left = -((bg.b.x - bg.dx) + r.left) / z + 'px';
-      img.style.top = -((bg.b.y - bg.dy) + r.top) / z + 'px';
-      img.style.width = bg.sw / z + 'px'; img.style.height = bg.sh / z + 'px';
+      if (!g) { g = document.createElement('div'); g.className = 'gl'; g.innerHTML = '<canvas></canvas>'; p.prepend(g); }
     });
   }
-  let raf = 0; const soon = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(layout); };
-  if (window.overlay) {
-    if (window.overlay.onBg) window.overlay.onBg((b) => { bg = b; soon(); });
-    if (window.overlay.onBounds) window.overlay.onBounds((b) => { if (bg) { bg.b = b; soon(); } });
-    if (window.overlay.uiPrefs) window.overlay.uiPrefs().then((p) => { try { localStorage.setItem('ph_autohide', JSON.stringify(!!(p && p.autohide))); localStorage.setItem('ph_snap', p && p.snap ? '1' : ''); } catch (e) {} });
+  function draw() {
+    if (!vid || !info || !vid.videoWidth) return;
+    const s = vid.videoWidth / info.disp.width;
+    plates().forEach((p) => {
+      const cv = p.querySelector(':scope>.gl>canvas'); if (!cv) return;
+      const r = p.getBoundingClientRect(); if (r.width < 4) return;
+      const cw = Math.max(8, Math.round(r.width / 4)), ch = Math.max(8, Math.round(r.height / 4));
+      if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+      const sx = (info.b.x - info.disp.x + r.left) * s, sy = (info.b.y - info.disp.y + r.top) * s;
+      try { cv.getContext('2d').drawImage(vid, sx, sy, r.width * s, r.height * s, 0, 0, cw, ch); } catch (e) {}
+    });
   }
+  function loop() { if (!vid) return; vid.requestVideoFrameCallback(() => { draw(); loop(); }); }
+  async function startStream() {
+    if (!snap || stream || document.visibilityState === 'hidden' || !window.overlay.snapInfo) return;
+    try { info = await window.overlay.snapInfo(); } catch (e) { return; }
+    if (!info || !info.id || !snap) return;
+    try {
+      const st = await navigator.mediaDevices.getUserMedia({ audio: false, video: { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: info.id, maxWidth: 480, maxHeight: 270, maxFrameRate: 24 } } });
+      if (!snap || document.visibilityState === 'hidden' || stream) { st.getTracks().forEach((t) => t.stop()); return; }
+      stream = st; vid = document.createElement('video'); vid.muted = true; vid.srcObject = st; await vid.play(); loop();
+    } catch (e) { /* без потока остаётся тёмное стекло */ }
+  }
+  function stopStream() { if (stream) stream.getTracks().forEach((t) => t.stop()); stream = null; if (vid) vid.srcObject = null; vid = null; }
+  function setSnap(on) {
+    snap = !!on;
+    root.classList.toggle('snap', snap);
+    try { localStorage.setItem('ph_snap', snap ? 'true' : 'false'); } catch (e) {}
+    if (snap) { ensureCanvases(); startStream(); } else { stopStream(); plates().forEach((p) => { const g = p.querySelector(':scope>.gl'); if (g) g.remove(); }); }
+  }
+  if (window.overlay) {
+    if (window.overlay.onSnapChanged) window.overlay.onSnapChanged(setSnap);
+    if (window.overlay.onBounds) window.overlay.onBounds((i) => { info = i; });
+    if (window.overlay.uiPrefs) window.overlay.uiPrefs().then((p) => { try { localStorage.setItem('ph_autohide', JSON.stringify(!!(p && p.autohide))); } catch (e) {} setSnap(p && p.snap); });
+  }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') stopStream(); else if (snap) { ensureCanvases(); startStream(); } });
   const ui = document.getElementById('ui');
-  if (ui && window.ResizeObserver) new ResizeObserver(soon).observe(ui);
-  const pn = document.getElementById('panel'); if (pn) new MutationObserver(soon).observe(pn, { attributes: true, attributeFilter: ['class'] });
-  window.addEventListener('resize', soon);
+  if (ui && window.MutationObserver) new MutationObserver(() => { if (snap) ensureCanvases(); }).observe(ui, { childList: true, subtree: true });
 })();
